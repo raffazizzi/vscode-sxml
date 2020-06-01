@@ -1,0 +1,56 @@
+{
+	"name": "sxml",
+	"displayName": "Scholarly XML",
+	"description": "XML validator (relaxNG) and autocomplete with features typically needed by academic encoding projects.",
+	"version": "0.1.0",
+	"engines": {
+		"vscode": "^1.42.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"keywords": [
+		"XML",
+		"relaxNG",
+		"text encoding",
+		"text encoding initiative",
+		"digital humanities",
+		"TEI",
+		"MEI"
+	],
+	"activationEvents": [
+		"onCommand:sxml.validate",
+		"onLanguage:xml"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "sxml.validate",
+				"title": "Validate XML"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile",
+		"test": "node ./out/test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/glob": "^7.1.1",
+		"@types/mocha": "^5.2.7",
+		"@types/node": "^12.12.39",
+		"@types/vscode": "^1.45.1",
+		"cross-fetch": "^3.0.4",
+		"glob": "^7.1.5",
+		"mocha": "^6.2.3",
+		"salve": "file:../salve/build/dist",
+		"saxes": "^5.0.1",
+		"tslint": "^5.20.0",
+		"typescript": "^3.9.2",
+		"vscode-test": "^1.2.2"
+	},
+	"dependencies": {}
+}

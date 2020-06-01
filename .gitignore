@@ -1,0 +1,15 @@
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# WebStorm
+.idea/
+
+# vi
+*~
+
+# ext
+out/
+node_modules
