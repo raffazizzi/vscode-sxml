@@ -12,4 +12,5 @@ Thumbs.db
 
 # ext
 out/
+dist/
 node_modules
