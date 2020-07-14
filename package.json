@@ -3,7 +3,7 @@
 	"displayName": "Scholarly XML",
 	"publisher": "raffazizzi",
 	"description": "XML validator (relaxNG) and autocomplete with features typically needed by academic encoding projects.",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"engines": {
 		"vscode": "^1.45.1"
 	},
@@ -28,7 +28,11 @@
 		"commands": [
 			{
 				"command": "sxml.validate",
-				"title": "Validate XML with associated RelaxNG schema."
+				"title": "sxml: Validate XML with associated RelaxNG schema."
+			},
+			{
+				"command": "sxml.wrapWithEl",
+				"title": "sxml: Wrap selection with element"
 			}
 		]
 	},
@@ -38,17 +42,19 @@
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile",
 		"test": "node ./out/test/runTest.js",
-    "webpack": "webpack --mode development",
-    "webpack-dev": "webpack --mode development --watch",
-    "test-compile": "tsc -p ./"
+		"webpack": "webpack --mode development",
+		"webpack-dev": "webpack --mode development --watch",
+		"test-compile": "tsc -p ./"
 	},
 	"devDependencies": {
 		"@types/glob": "^7.1.1",
 		"@types/mocha": "^5.2.7",
 		"@types/node": "^12.12.39",
 		"@types/vscode": "^1.45.1",
+		"file-url": "^3.0.0",
 		"glob": "^7.1.5",
 		"mocha": "^6.2.3",
+		"salve": "file:../salve/build/dist",
 		"saxes": "^5.0.1",
 		"ts-loader": "^7.0.5",
 		"tslint": "^5.20.0",
@@ -58,7 +64,6 @@
 		"webpack-cli": "^3.3.11"
 	},
 	"dependencies": {
-		"cross-fetch": "^3.0.4",
-		"salve": "file:../salve/build/dist"
+		"cross-fetch": "^3.0.4"
 	}
 }

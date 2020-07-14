@@ -1,9 +1,9 @@
 import 'cross-fetch/polyfill';
 import * as vscode from 'vscode';
 import {DefaultNameResolver, EnterStartTagEvent} from 'salve';
-import { grammarFromSource, loadSchema } from './extension';
+import { StoredGrammar, GrammarStore, grammarFromSource, locateSchema } from './extension';
 import { SaxesParser, SaxesTag, SaxesAttributeNS, SaxesStartTagNS } from "saxes";
-import { Ref } from 'salve/lib/salve/patterns';
+import { Ref, Grammar } from 'salve/lib/salve/patterns';
 
 // Constants
 const TAG = 'TAG';
@@ -11,9 +11,9 @@ const ATT = 'ATT';
 const VAL = 'VAL';
 
 class SalveCompletionProvider implements vscode.CompletionItemProvider {
-  state: vscode.Memento;
-  constructor(ctx: vscode.Memento) {
-    this.state = ctx;
+  store: GrammarStore;
+  constructor(store: GrammarStore) {
+    this.store = store;
   }
   public provideCompletionItems(
     document: vscode.TextDocument, position: vscode.Position,
@@ -55,14 +55,21 @@ class SalveCompletionProvider implements vscode.CompletionItemProvider {
           return new Promise(() => {});
         }
       }
-
-      // TODO: Find a way to avoid loading the schema every time.
-      const schemaData = loadSchema();
+      
+      const schemaData = locateSchema();
       if (schemaData) {
-        const {schema, fileText} = schemaData;
-        return getCompletions(schema, fileText, position, offset, request);
+        const {schema, fileText, xmlURI} = schemaData;
+        const _xmlURI = xmlURI.toString();
+        let storedGrammar: StoredGrammar;
+        if (!this.store[_xmlURI]) {
+          // Don't attempt to perform completions before validation.
+          return new Promise(() => {});
+        } else {
+          storedGrammar = this.store[_xmlURI];
+        }
+        return getCompletions(storedGrammar, schema, fileText, position, offset, request);
       } else {
-        return new Promise(() => {});          
+        return new Promise(() => {});
       }
   }
 }
@@ -71,10 +78,15 @@ function truncate(str: string, n: number){
   return (str.length > n) ? str.substr(0, n-1) + '…' : str;
 }
 
-async function getCompletions(rngSource: string, xmlSource: string,
+async function getCompletions(storedGrammar: StoredGrammar, rngSource: string, xmlSource: string,
   position: vscode.Position, offset: number, request: string):
   Promise<Array<vscode.CompletionItem>> {
-  const tree = await grammarFromSource(rngSource);
+  let tree: Grammar;
+  if (storedGrammar) {
+    tree = storedGrammar.grammar as Grammar;
+  } else {
+    tree = await grammarFromSource(rngSource) as Grammar;
+  }
   if (!tree) {
     return [];
   }

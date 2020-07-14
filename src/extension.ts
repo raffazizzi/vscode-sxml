@@ -9,9 +9,21 @@ import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
+const ERR_SCHEMA = 'ERR_SCHEMA';
 const NO_ERR = 'NO_ERR';
 
+export interface StoredGrammar {
+  rngURI?: string;
+  grammar?: Grammar | void;
+}
+
+export interface GrammarStore {
+  [key: string]: StoredGrammar;
+}
+
 let diagnosticCollection: vscode.DiagnosticCollection;
+const grammarStore: GrammarStore = {};
+
 
 type TagInfo = {
   uri: string;
@@ -23,23 +35,56 @@ export async function grammarFromSource(rngSource: string): Promise<Grammar | vo
 	// Treat it as a Relax NG schema.
   const schemaURL = new URL(rngSource);
   try {
-    await convertRNGToPattern(schemaURL);
-    return (await convertRNGToPattern(schemaURL)).pattern;
-  } catch {
-    vscode.window.showInformationMessage('Could not retrieve schema.');
+    const s = await convertRNGToPattern(schemaURL);
+    return s.pattern;
+  } catch(err) {
+    vscode.window.showInformationMessage('Could not parse schema.');
   }
 }
 
-async function parse(rngSource: string, xmlSource: string, xmlURI: string): Promise<String> {
+async function parseWithoutSchema(xmlSource: string, xmlURI: string): Promise<String> {
+  diagnosticCollection.clear();
+  let error = NO_ERR;
+  let diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
+  const parser = new SaxesParser({ xmlns: true, position: true });
+  try {
+    parser.write(xmlSource).close();
+  } catch(err) {
+    error = ERR_WELLFORM;
+    let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
+    let diagnostics = diagnosticMap.get(xmlURI);
+    if (!diagnostics) { diagnostics = []; }
+    diagnostics.push(new vscode.Diagnostic(range, err.message));
+    diagnosticMap.set(xmlURI, diagnostics);
+  }
+
+  // Show diagnostics.
+  diagnosticMap.forEach((diags, file) => {
+    diagnosticCollection.set(vscode.Uri.parse(file), diags);
+  });
+
+  return error;
+}
+
+async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string, xmlURI: string): Promise<String> {
   // Parsing function adapted from 
   // https://github.com/mangalam-research/salve/blob/0fd149e44bc422952d3b095bfa2cdd8bf76dd15c/lib/salve/parse.ts
   // Mozilla Public License 2.0
 
   const parser = new SaxesParser({ xmlns: true, position: true });
+  let tree: void | Grammar;
 
-  const tree = await grammarFromSource(rngSource);
+  // Only get grammar from source if necessary.
+  if (!isNewSchema) {
+    tree = grammarStore[xmlURI].grammar;
+  }
   if (!tree) {
-    return ERR_WELLFORM;
+    tree = await grammarFromSource(rngSource);
+  }
+  if (tree) {
+    grammarStore[xmlURI].grammar = tree;
+  } else {
+    return ERR_SCHEMA;
   }
 
 	const nameResolver = new DefaultNameResolver();
@@ -196,7 +241,7 @@ async function parse(rngSource: string, xmlSource: string, xmlURI: string): Prom
   return error;
 }
 
-export function loadSchema(): {schema: string, fileText: string, xmlURI: vscode.Uri} | void {
+export function locateSchema(): {schema: string, fileText: string, xmlURI: vscode.Uri} | void {
   const activeEditor = vscode.window.activeTextEditor;
   if (!activeEditor) {
     return;
@@ -211,7 +256,6 @@ export function loadSchema(): {schema: string, fileText: string, xmlURI: vscode.
   schemaURLMatch = schemaURLMatch ? schemaURLMatch : fileText.match(/<\?xml-model.*?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".*?href="([^"]+)"/);
 
   if (!schemaURLMatch) {
-    vscode.window.showInformationMessage('No associated RelaxNG schema.');
     return;
   } else {
     const schemaURL = schemaURLMatch[1];
@@ -226,16 +270,28 @@ export function loadSchema(): {schema: string, fileText: string, xmlURI: vscode.
       // This is NOT a full URL, so treat this as a relative path
       const path = activeEditor.document.uri.path.split('/').slice(0, -1).join('/');
       schema = fileUrl(path + '/' + schemaURL, {resolve: false});
-      return {schema, fileText, xmlURI};
     }
+    return {schema, fileText, xmlURI};
   }
 }
 
-function doValidation(state: vscode.Memento): void {
-  const schemaData = loadSchema();
-  if (schemaData) {
-    const {schema, fileText, xmlURI} = schemaData;
-    parse(schema, fileText, xmlURI.toString()).then((err) => {
+function doValidation(): void {  
+  const schemaInfo = locateSchema();
+  if (schemaInfo) {
+    let isNewSchema = false;
+    const {schema, fileText, xmlURI} = schemaInfo;
+    const _xmlURI = xmlURI.toString();
+    if (!grammarStore[_xmlURI]) {
+      grammarStore[_xmlURI] = {};
+    }
+    const savedSchemaLoc = grammarStore[_xmlURI].rngURI;
+    if (savedSchemaLoc !== schema) {
+      // clean up
+      grammarStore[_xmlURI].grammar = undefined;
+      grammarStore[_xmlURI].rngURI = schema;
+      isNewSchema = true;
+    }
+    parse(isNewSchema, schema, fileText, _xmlURI).then((err) => {
       switch (err) {
         case ERR_VALID:
           vscode.window.setStatusBarMessage('$(error) XML is not valid.');
@@ -243,8 +299,28 @@ function doValidation(state: vscode.Memento): void {
         case ERR_WELLFORM:
           vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
           break;
+        case ERR_SCHEMA:
+          vscode.window.setStatusBarMessage('$(error) RNG schema is incorrect.');
+          break;
         default:
           vscode.window.setStatusBarMessage('$(check) XML is valid.');
+      }
+    });
+  } else {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+      return;
+    }
+
+    const fileText = activeEditor.document.getText();
+    const xmlURI = activeEditor.document.uri;
+    parseWithoutSchema(fileText, xmlURI.toString()).then((err) => {
+      switch (err) {
+        case ERR_WELLFORM:
+          vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
+          break;
+        default:
+          vscode.window.setStatusBarMessage('$(check) XML is well formed.');
       }
     });
   }
@@ -262,12 +338,12 @@ export function activate(context: vscode.ExtensionContext) {
   // COMPLETION PROPOSALS (with possible())
   context.subscriptions.push(
     vscode.languages.registerCompletionItemProvider(
-      { scheme: 'file', language: 'xml' }, new SalveCompletionProvider(context.workspaceState), '<', ' ', '"')
+      { scheme: 'file', language: 'xml' }, new SalveCompletionProvider(grammarStore), '<', ' ', '"')
   );
 
   // COMMANDS
   let validate = vscode.commands.registerCommand('sxml.validate', () => {
-		doValidation(context.workspaceState);
+		doValidation();
   });
   let suggestAttValue = vscode.commands.registerTextEditorCommand(
     'sxml.suggestAttValue', (textEditor) => {
@@ -286,6 +362,23 @@ export function activate(context: vscode.ExtensionContext) {
       textEditor.selections = [new vscode.Selection(nextCursor, nextCursor)];
     }
   });
+  let wrapWithEl = vscode.commands.registerTextEditorCommand(
+    'sxml.wrapWithEl', (textEditor, edit, lineDelta: number, characterDelta: number) => {
+    const selection = textEditor?.selection;
+    if (selection) {
+      vscode.window.showInputBox({
+        value: '',
+        placeHolder: 'Enter element name',
+        validateInput: text => {
+          // return text === '123' ? 'Not 123!' : null;
+          // Make sure it's a
+          return null;
+        }
+      }).then(t => {
+        console.log(t);
+      });
+    }
+  });
 
   // EVENTS
 
@@ -298,8 +391,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.workspace.onDidChangeTextDocument((event: vscode.TextDocumentChangeEvent) => {
     if (event.document.languageId === "xml" && event.document.uri.scheme === "file") {
-      context.workspaceState.update('schema', loadSchema());
-      doValidation(context.workspaceState);
+      doValidation();
     }
   });
 
@@ -312,12 +404,11 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
     vscode.window.setStatusBarMessage('');
     if (editor?.document.languageId === "xml" && editor?.document.uri.scheme === "file") {
-      context.workspaceState.update('schema', loadSchema());
-      doValidation(context.workspaceState);
+      doValidation();
     }
   });
 
-	context.subscriptions.push(validate, suggestAttValue, translateCursor);
+	context.subscriptions.push(validate, suggestAttValue, translateCursor, wrapWithEl);
 }
 
 // this method is called when your extension is deactivated
