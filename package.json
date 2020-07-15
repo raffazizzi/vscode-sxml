@@ -34,6 +34,16 @@
 				"command": "sxml.wrapWithEl",
 				"title": "sxml: Wrap selection with element"
 			}
+		],
+		"keybindings": [
+			{
+				"key": "ctrl+e",
+				"command": "sxml.wrapWithEl"
+			},
+			{
+				"key": "cmd+e",
+				"command": "sxml.wrapWithEl"
+			}
 		]
 	},
 	"scripts": {
@@ -51,11 +61,8 @@
 		"@types/mocha": "^5.2.7",
 		"@types/node": "^12.12.39",
 		"@types/vscode": "^1.45.1",
-		"file-url": "^3.0.0",
 		"glob": "^7.1.5",
-		"mocha": "^6.2.3",
-		"salve": "file:../salve/build/dist",
-		"saxes": "^5.0.1",
+		"mocha": "^6.2.3",		
 		"ts-loader": "^7.0.5",
 		"tslint": "^5.20.0",
 		"typescript": "^3.9.2",
@@ -64,6 +71,9 @@
 		"webpack-cli": "^3.3.11"
 	},
 	"dependencies": {
-		"cross-fetch": "^3.0.4"
+		"file-url": "^3.0.0",
+		"saxes": "^5.0.1",
+		"cross-fetch": "^3.0.4",
+		"salve": "file:../salve/build/dist"
 	}
 }
