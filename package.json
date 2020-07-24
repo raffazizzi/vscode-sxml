@@ -3,7 +3,7 @@
 	"displayName": "Scholarly XML",
 	"publisher": "raffazizzi",
 	"description": "XML validator (relaxNG) and autocomplete with features typically needed by academic encoding projects.",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"engines": {
 		"vscode": "^1.45.1"
 	},
@@ -62,7 +62,8 @@
 		"@types/node": "^12.12.39",
 		"@types/vscode": "^1.45.1",
 		"glob": "^7.1.5",
-		"mocha": "^6.2.3",		
+		"mocha": "^6.2.3",
+		"salve": "file:../salve/build/dist",
 		"ts-loader": "^7.0.5",
 		"tslint": "^5.20.0",
 		"typescript": "^3.9.2",
@@ -73,7 +74,6 @@
 	"dependencies": {
 		"file-url": "^3.0.0",
 		"saxes": "^5.0.1",
-		"cross-fetch": "^3.0.4",
-		"salve": "file:../salve/build/dist"
+		"cross-fetch": "^3.0.4"
 	}
 }

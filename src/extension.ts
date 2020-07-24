@@ -36,6 +36,40 @@ type TagInfo = {
   hasContext: boolean;
 };
 
+export function locateSchema(): {schema: string, fileText: string, xmlURI: vscode.Uri} | void {
+  const activeEditor = vscode.window.activeTextEditor;
+  if (!activeEditor) {
+    return;
+  }
+  
+  const fileText = activeEditor.document.getText();
+  const xmlURI = activeEditor.document.uri;
+
+  // Locate RNG
+  let schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".*?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/);
+  // Retry with schematypens first
+  schemaURLMatch = schemaURLMatch ? schemaURLMatch : fileText.match(/<\?xml-model.*?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".*?href="([^"]+)"/);
+
+  if (!schemaURLMatch) {
+    return;
+  } else {
+    const schemaURL = schemaURLMatch[1];
+    // Start by assuming it's a full URL.
+    let schema = schemaURL;
+
+    // Determine whether it's a path.
+    if (path.parse(schemaURL).root) {
+      // This is a local absolute path
+      schema = fileUrl(schemaURL, {resolve: false});
+    } else if (!url.parse(schemaURL).protocol) {
+      // This is NOT a full URL, so treat this as a relative path
+      const path = activeEditor.document.uri.path.split('/').slice(0, -1).join('/');
+      schema = fileUrl(path + '/' + schemaURL, {resolve: false});
+    }
+    return {schema, fileText, xmlURI};
+  }
+}
+
 export async function grammarFromSource(rngSource: string): Promise<Grammar | void> {
 	// Treat it as a Relax NG schema.
   const schemaURL = new URL(rngSource);
@@ -246,40 +280,6 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   return error;
 }
 
-export function locateSchema(): {schema: string, fileText: string, xmlURI: vscode.Uri} | void {
-  const activeEditor = vscode.window.activeTextEditor;
-  if (!activeEditor) {
-    return;
-  }
-  
-  const fileText = activeEditor.document.getText();
-  const xmlURI = activeEditor.document.uri;
-
-  // Locate RNG
-  let schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".*?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/);
-  // Retry with schematypens first
-  schemaURLMatch = schemaURLMatch ? schemaURLMatch : fileText.match(/<\?xml-model.*?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".*?href="([^"]+)"/);
-
-  if (!schemaURLMatch) {
-    return;
-  } else {
-    const schemaURL = schemaURLMatch[1];
-    // Start by assuming it's a full URL.
-    let schema = schemaURL;
-
-    // Determine whether it's a path.
-    if (path.parse(schemaURL).root) {
-      // This is a local absolute path
-      schema = fileUrl(schemaURL, {resolve: false});
-    } else if (!url.parse(schemaURL).protocol) {
-      // This is NOT a full URL, so treat this as a relative path
-      const path = activeEditor.document.uri.path.split('/').slice(0, -1).join('/');
-      schema = fileUrl(path + '/' + schemaURL, {resolve: false});
-    }
-    return {schema, fileText, xmlURI};
-  }
-}
-
 function doValidation(): void {  
   const schemaInfo = locateSchema();
   if (schemaInfo) {
@@ -348,7 +348,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // COMMANDS
   let validate = vscode.commands.registerCommand('sxml.validate', () => {
-		doValidation();
+    doValidation();
+    return context;
   });
   let suggestAttValue = vscode.commands.registerTextEditorCommand(
     'sxml.suggestAttValue', (textEditor) => {
@@ -408,7 +409,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // Clear status after closing file.
-  vscode.workspace.onDidCloseTextDocument((document: vscode.TextDocument) => {
+  vscode.workspace.onDidCloseTextDocument(() => {
     vscode.window.setStatusBarMessage('');
   });
 
@@ -420,7 +421,15 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-	context.subscriptions.push(validate, suggestAttValue, translateCursor, wrapWithEl);
+  context.subscriptions.push(validate, suggestAttValue, translateCursor, wrapWithEl);
+  
+  // Kick off on activation if the current file is XML
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor) {
+    if (activeEditor.document.languageId === 'xml') {
+      doValidation();
+    }
+  }
 }
 
 // this method is called when your extension is deactivated

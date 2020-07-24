@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <start>
+    <ref name="test-addressBook"/>
+  </start>
+  <define name="test-addressBook">
+    <element name="addressBook" xmlns="http://relaxng.org/ns/structure/1.0">
+      <optional>
+        <attribute name="type">
+          <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0">Type of name.</a:documentation>
+          <choice>
+            <value>person</value>
+            <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0">A person.</a:documentation>
+            <value>company</value>
+            <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0">A company.</a:documentation>
+          </choice>
+        </attribute>
+      </optional>
+      <zeroOrMore>
+        <element name="card">
+          <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0"/>
+          <element name="name">
+            <optional>
+              <attribute name="type">
+                <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0">Type of name.</a:documentation>
+                <choice>
+                  <value>person</value>
+                  <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0">A person.</a:documentation>
+                  <value>company</value>
+                  <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0">A company.</a:documentation>
+                </choice>
+              </attribute>
+            </optional>            
+            <text/>
+          </element>
+          <element name="email">
+            <text/>
+          </element>
+        </element>
+      </zeroOrMore>
+      <element name="ext" ns="http://example.com">
+        <a:documentation xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0">External CDATA</a:documentation>
+        <text/>
+      </element>
+    </element>
+  </define>
+</grammar>

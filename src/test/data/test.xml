@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model schematypens="http://relaxng.org/ns/structure/1.0" type="application/xml" href="test.rng"?>
+<addressBook xmlns:e="http://example.com">
+  <card>     <name>John Smith</name><email>js@example.com</email></card>
+  <card>
+    <name>Fred Bloggs</name>
+    <email>fb@example.net</email>
+  </card>
+  <e:ext></e:ext>
+</addressBook>
