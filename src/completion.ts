@@ -19,15 +19,10 @@ class SalveCompletionProvider implements vscode.CompletionItemProvider {
     document: vscode.TextDocument, position: vscode.Position,
     token: vscode.CancellationToken, context: vscode.CompletionContext):
     Thenable<vscode.CompletionItem[]> {
-      const activeEditor = vscode.window.activeTextEditor;
-      if (!activeEditor) {
-        return new Promise(() => {});
-      }
-
-      const line = activeEditor.document.lineAt(position.line).text;
+      const line = document.lineAt(position.line).text;
       const lineUntil = line.substring(0, position.character);
       const offset = document.offsetAt(position);
-      const textUntil = activeEditor.document.getText().substring(0, offset);
+      const textUntil = document.getText().substring(0, offset);
 
       let request = TAG;
 
