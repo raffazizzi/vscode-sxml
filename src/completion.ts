@@ -1,9 +1,9 @@
 import 'cross-fetch/polyfill';
 import * as vscode from 'vscode';
-import {DefaultNameResolver, EnterStartTagEvent} from 'salve';
+import {DefaultNameResolver, EnterStartTagEvent} from 'salve-annos';
 import { StoredGrammar, GrammarStore, grammarFromSource, locateSchema } from './extension';
 import { SaxesParser, SaxesTag, SaxesAttributeNS, SaxesStartTagNS } from "saxes";
-import { Ref, Grammar } from 'salve/lib/salve/patterns';
+import { Ref, Grammar } from 'salve-annos/lib/salve/patterns';
 
 // Constants
 const TAG = 'TAG';
@@ -199,6 +199,7 @@ async function getCompletions(storedGrammar: StoredGrammar, rngSource: string, x
             }
           }
           const ci = new vscode.CompletionItem(`$(mention)${prefix}${att.name}${newNs}`, 24);
+          ci.filterText = `${prefix}${att.name}`;
           ci.insertText = `${xmlns}${prefix}${att.name}=""`;
           ci.detail = truncate(att.documentation, 20);
           ci.documentation = att.documentation;
@@ -308,12 +309,7 @@ async function getCompletions(storedGrammar: StoredGrammar, rngSource: string, x
         || offset === parser.position + 1) {
         switch (request) {
           case ATT:
-            if (offset === attPos) {
-              showAttSuggestion(node.attributes);
-            } else {
-              // -1 makes up for equal sign already consumed by the processor
-              showAttSuggestion(node.attributes);
-            }
+            showAttSuggestion(node.attributes);
             break;
           case VAL:
             // fire last attribute before cursor
