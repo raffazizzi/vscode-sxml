@@ -34,7 +34,7 @@ Validation will trigger automatically when you open an XML file and when you mak
 
 Validation continues as you type and the result is shown in the status bar at the bottom.
 
-![Demo showing validation on typing](images/rm-validate.gif)
+![Demo showing validation on typing](https://github.com/raffazizzi/vscode-sxml/raw/main/images/rm-validate.gif)
 
 ### Suggestions and documentation
 
@@ -42,13 +42,13 @@ Schema-aware suggestions will be made as you type elements, attributes, and attr
 
 If it's available in the schema, documentation will be shown.
 
-![Demo showing schema-aware suggestions](images/rm-suggestions.gif)
+![Demo showing schema-aware suggestions](https://github.com/raffazizzi/vscode-sxml/raw/main/images/rm-suggestions.gif)
 
 ### Wrap selection with element
 
 Select some text and wrap it in a tag using Ctrl+e or by bringing up the Command Palette and typing "Scholarly XML: Wrap selection with element".
 
-![Demo showing wrapping text with element](images/rm-wrap.gif)
+![Demo showing wrapping text with element](https://github.com/raffazizzi/vscode-sxml/raw/main/images/rm-wrap.gif)
 
 ## Recommended extensions
 

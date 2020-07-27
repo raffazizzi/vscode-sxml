@@ -3,7 +3,7 @@
 out/**
 src/**
 .gitignore
-vsc-extension-quickstart.md
+*.vsix
 **/tsconfig.json
 **/tslint.json
 **/*.map
