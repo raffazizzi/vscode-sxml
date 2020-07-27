@@ -6,7 +6,6 @@ import * as path from 'path';
 import {Grammar, convertRNGToPattern, DefaultNameResolver, Name} from 'salve-annos';
 import * as fileUrl from "file-url";
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
-import SalveDocumentationProvider from './hover';
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
