@@ -1,34 +1,71 @@
 # Scholarly XML
 
-Scholarly XML is a VSCode extension with a relaxNG validator and autocomplete with features typically needed by academic encoding projects.
+Scholarly XML is a VSCode extension with a RELAX NG validator and autocomplete with features typically needed by academic encoding projects.
 
-Unlike most XML VScode extensions, Scholarly XML _does not require Java_. The extension builds on [Salve](https://github.com/mangalam-research/salve), a node relaxNG implementation. This makes Scholarly XML easy to install for use with students, in workshop, and in minimal computing projects.
+Unlike most XML VSCode extensions, Scholarly XML _does not require Java_. The extension builds on a fork of [Salve](https://github.com/mangalam-research/salve), a TypeScript RELAX NG implementation. This makes Scholarly XML easy to install for use with students, in workshops, and in minimal computing projects.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+* Checks if XML is well-formed.
+* Validates XML with associated RELAX NG schema (via `<?xml-model?>`) when you open or modify a file.
+* Makes schema aware suggestions for elements, attributes, and attribute values.
+* When available, shows documentation from schema for elements, attributes, and attribute values.
+* Wrap selected text with tags using Ctrl+e
 
-For example if there is an image subfolder under your extension project workspace:
+## Usage
 
-\!\[feature X\]\(images/feature-x.png\)
+### Validation
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+To validate, your XML file needs to be associated to a RELAX NG schema via `<?xml-model?>`. For example:
 
-## Requirements
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model
+  href="https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_all.rng"
+  schematypens="http://relaxng.org/ns/structure/1.0"
+  type="application/xml"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" />
+```
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+Validation will trigger automatically when you open an XML file and when you make changes. Or you can trigger it manually like this:
 
-## Extension Settings
+* Bring up the Command Palette (F1, or Ctrl+Shift+P on Windows and Linux, or Shift+CMD+P on OSX)
+* Type or select "Scholarly XML: Validate XML with associated RELAX NG schema."
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+Validation continues as you type and the result is shown in the status bar at the bottom.
 
-For example:
+![Demo showing validation on typing](images/rm-validate.gif)
 
-This extension contributes the following settings:
+### Suggestions and documentation
 
-* `myExtension.enable`: enable/disable this extension
-* `myExtension.thing`: set to `blah` to do something
+Schema-aware suggestions will be made as you type elements, attributes, and attribute values. You can also bring them up like all other suggestions using Ctrl+Space.
 
-## Known Issues
+If it's available in the schema, documentation will be shown.
 
-Schematron is not supported.
+![Demo showing schema-aware suggestions](images/rm-suggestions.gif)
+
+### Wrap selection with element
+
+Select some text and wrap it in a tag using Ctrl+e or by bringing up the Command Palette and typing "Scholarly XML: Wrap selection with element".
+
+![Demo showing wrapping text with element](images/rm-wrap.gif)
+
+## Recommended extensions
+
+For a better XML editing experience we recommend also installing the following extensions:
+
+* [Auto Close Tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-close-tag)
+* [Auto Rename Tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag)
+* [Close HTML/XML tag](https://marketplace.visualstudio.com/items?itemName=Compulim.compulim-vscode-closetag)
+
+## Change log
+
+You can read the change log [here](https://github.com/raffazizzi/vscode-sxml/blob/master/CHANGELOG.md).
+
+## Contributions
+
+Like this extension? [Star it on GitHub](https://github.com/raffazizzi/vscode-sxml/stargazers)!
+
+Do you have an idea or suggestion? [Open a feature request](https://github.com/raffazizzi/vscode-sxml/issues).
+
+Found something wrong? [File an issue](https://github.com/raffazizzi/vscode-sxml/issues).
