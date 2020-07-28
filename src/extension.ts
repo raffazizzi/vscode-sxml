@@ -46,9 +46,9 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
   const xmlURI = activeEditor.document.uri;
 
   // Locate RNG
-  let schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".*?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/);
+  let schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/s);
   // Retry with schematypens first
-  schemaURLMatch = schemaURLMatch ? schemaURLMatch : fileText.match(/<\?xml-model.*?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".*?href="([^"]+)"/);
+  schemaURLMatch = schemaURLMatch ? schemaURLMatch : fileText.match(/<\?xml-model.+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".+?href="([^"]+)"/s);
 
   if (!schemaURLMatch) {
     return;
