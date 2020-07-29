@@ -32,3 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Switched to npm version of [salve-annos](https://github.com/raffazizzi/salve).
+
+## [0.2.2]
+
+### Fixed
+
+- Support for schema association with multiline `<?xml-model?>`.
+
+### Changed
+
+- Updated to salve-annos 1.1.0 which has improved validation of xs:anyURI.
