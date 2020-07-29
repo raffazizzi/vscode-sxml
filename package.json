@@ -87,7 +87,7 @@
 	"dependencies": {
 		"cross-fetch": "^3.0.4",
 		"file-url": "^3.0.0",
-		"salve-annos": "^1.0.1",
+		"salve-annos": "^1.1.0",
 		"saxes": "^5.0.1"
 	}
 }
