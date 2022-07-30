@@ -4,7 +4,7 @@ import 'cross-fetch/polyfill';
 import * as url from 'url';
 import * as path from 'path';
 import {Grammar, convertRNGToPattern, DefaultNameResolver, Name} from 'salve-annos';
-import * as fileUrl from "file-url";
+import fileUrl from "file-url";
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
 
 const ERR_VALID = 'ERR_VALID';
@@ -88,12 +88,13 @@ async function parseWithoutSchema(xmlSource: string, xmlURI: string): Promise<St
   const parser = new SaxesParser({ xmlns: true, position: true });
   try {
     parser.write(xmlSource).close();
-  } catch(err) {
+  } catch(err: unknown) {
+    const e = err as Error
     error = ERR_WELLFORM;
     let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
     let diagnostics = diagnosticMap.get(xmlURI);
     if (!diagnostics) { diagnostics = []; }
-    diagnostics.push(new vscode.Diagnostic(range, err.message));
+    diagnostics.push(new vscode.Diagnostic(range, e.message));
     diagnosticMap.set(xmlURI, diagnostics);
   }
 
@@ -144,7 +145,8 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
         let diagnostics = diagnosticMap.get(xmlURI);
         if (!diagnostics) { diagnostics = []; }
         const names = err.getNames();
-        const namesMsg = names.map((n: Name) => {
+        // TODO: Temporarily setting this to any
+        const namesMsg = names.map((n: any) => {
           const name = n.toJSON();
           let ns = name.ns ? `(${name.ns})` : '';
           return `"${name.name}" ${ns}`;
@@ -264,11 +266,12 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   
     parser.write(xmlSource).close();
   } catch(err) {
+    const e = err as Error
     error = ERR_WELLFORM;
     let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
     let diagnostics = diagnosticMap.get(xmlURI);
     if (!diagnostics) { diagnostics = []; }
-    diagnostics.push(new vscode.Diagnostic(range, err.message));
+    diagnostics.push(new vscode.Diagnostic(range, e.message));
     diagnosticMap.set(xmlURI, diagnostics);
   } 
 
