@@ -89,6 +89,6 @@
 	},
 	"dependencies": {
 		"file-url": "^4.0.0",
-		"salve-annos": "^1.1.0"
+		"salve-annos": "^1.2.1"
 	}
 }
