@@ -3,7 +3,7 @@
 	"displayName": "Scholarly XML",
 	"publisher": "raffazizzi",
 	"description": "XML validator (RELAX NG only) and autocomplete with features typically needed by academic encoding projects.",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"engines": {
 		"vscode": "^1.45.1"
 	},
