@@ -9,3 +9,4 @@ src/**
 **/*.map
 **/*.ts
 webpack.config.js
+node_modules
