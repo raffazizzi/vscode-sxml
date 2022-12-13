@@ -44,7 +44,26 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
   
   const fileText = activeEditor.document.getText();
   const xmlURI = activeEditor.document.uri;
-
+  const xmlExt = activeEditor.document.fileName.split('.').pop();
+  const xmlLang = activeEditor.document.languageId;
+  console.log("File Extension is: ", xmlExt);
+  console.log("File Language ID is: ", xmlLang);
+  
+  const defaultSchemas = vscode.workspace.getConfiguration("sxml").get("defaultSchemas") as {[key:string]:string};
+  console.log("Default Schemas are: ",defaultSchemas);
+  let extKey = xmlExt as keyof typeof defaultSchemas;
+  console.log("extKey is now: ", extKey);
+  console.log("Keys: ",Object.keys(defaultSchemas));
+  console.log(defaultSchemas.hasOwnProperty("ptx"));
+  if("ptx" in defaultSchemas){
+    console.log("In if.");
+    console.log("xmlKey is in defaultSchemas, with value: ", defaultSchemas[extKey]);
+    // const schemaURL = defaultSchemas[xmlLang]
+  }
+  // const configuration = vscode.workspace.getConfiguration('sxml');
+  // console.log("Test", configuration);
+  // const schemas = configuration.get('defaultSchemas');
+  // console.log("Default Schemas: ", schemas);
   // Locate RNG
   let schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/s);
   // Retry with schematypens first

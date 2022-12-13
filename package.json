@@ -59,6 +59,25 @@
 				"key": "cmd+e",
 				"command": "sxml.wrapWithEl"
 			}
+		],
+		"configuration": [
+			{
+				"title": "ScholarlyXML",
+				"properties": {
+					"sxml.defaultSchemas": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "string"
+						},
+						"default": {
+							"pretext": "https://raw.githubusercontent.com/PreTeXtBook/pretext/master/schema/pretext.rng",
+							"xml": "my xml schema",
+							"MEI": "[schema here]"
+						},
+						"markdownDescription": "Dictionary of `\"language\": \"schema\"` to use as the default RELAX NG schema for files with that language or extension."
+					}
+				}
+			}
 		]
 	},
 	"scripts": {
