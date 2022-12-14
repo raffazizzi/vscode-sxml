@@ -29,7 +29,8 @@
 	},
 	"activationEvents": [
 		"onCommand:sxml.validate",
-		"onLanguage:xml"
+		"onLanguage:xml",
+		"onLanguage:pretext"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -64,15 +65,22 @@
 			{
 				"title": "ScholarlyXML",
 				"properties": {
+					"sxml.languagesToCheck": {
+						"type":"array",
+						"items": {
+							"type":"string"
+						},
+						"default":["xml","pretext"],
+						"description": "Specify any additional languages on which Scholarly XML should activate."
+					},
 					"sxml.defaultSchemas": {
 						"type": "object",
 						"additionalProperties": {
 							"type": "string"
 						},
 						"default": {
-							"pretext": "https://raw.githubusercontent.com/PreTeXtBook/pretext/master/schema/pretext.rng",
-							"xml": "my xml schema",
-							"MEI": "[schema here]"
+							"ptx": "https://raw.githubusercontent.com/PreTeXtBook/pretext/master/schema/pretext.rng",
+							"xml": "https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_all.rng"
 						},
 						"markdownDescription": "Dictionary of `\"language\": \"schema\"` to use as the default RELAX NG schema for files with that language or extension."
 					}
