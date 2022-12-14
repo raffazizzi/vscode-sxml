@@ -45,15 +45,29 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
   const fileText = activeEditor.document.getText();
   const xmlURI = activeEditor.document.uri;
 
-  // Locate RNG
+  let extKey = activeEditor.document.fileName.split('.').pop() as keyof typeof defaultSchemas;
+
+  const defaultSchemas = vscode.workspace.getConfiguration("sxml").get("defaultSchemas") as {[key:string]:string};
+
+  // Set schemaURL to value from settings if possible
+  let schemaURL;
+  if (defaultSchemas.hasOwnProperty(extKey)){
+    console.log("File extension", extKey,"is in settings, with RNG URL: ", defaultSchemas[extKey]);
+    schemaURL = defaultSchemas[extKey];
+  }
+
+  // Locate RNG from active file
   let schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/s);
   // Retry with schematypens first
   schemaURLMatch = schemaURLMatch ? schemaURLMatch : fileText.match(/<\?xml-model.+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".+?href="([^"]+)"/s);
 
-  if (!schemaURLMatch) {
-    return;
-  } else {
-    const schemaURL = schemaURLMatch[1];
+  // If RNG set inside document, use that.  Otherwise use rng provided by settings.  If neither exist, simply return.
+  if (schemaURLMatch) {
+    // Get schema URL from document if possible, overriding settings if needed
+    schemaURL = schemaURLMatch[1];
+    console.log("Now schemaURL is: ", schemaURL)
+  }
+  if (schemaURL) {
     // Start by assuming it's a full URL.
     let schema = schemaURL;
 
@@ -67,6 +81,9 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
       schema = fileUrl(path + '/' + schemaURL, {resolve: false});
     }
     return {schema, fileText, xmlURI};
+  } else {
+    console.log("No schema URL specified in either settings or the file")
+    return;
   }
 }
 
@@ -338,15 +355,23 @@ function doValidation(): void {
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Extension "Scholarly XML" is now active.');
+  // Get supported languages from settings:
+  const languages: string[] = vscode.workspace.getConfiguration("sxml").get("languagesToCheck") ?? ["xml"];
+  // Check if active language is in list of supported languages, otherwise use xml
+  const activeEditor = vscode.window.activeTextEditor;
+  let validLang = "xml";
+  if (activeEditor && languages.includes(activeEditor?.document.languageId)) {
+    validLang = activeEditor.document.languageId;
+  }
 
   // DIAGNOSTICS
-  diagnosticCollection = vscode.languages.createDiagnosticCollection('xml');
+  diagnosticCollection = vscode.languages.createDiagnosticCollection(validLang);
   context.subscriptions.push(diagnosticCollection);
 
   // COMPLETION PROPOSALS (with possible())
   context.subscriptions.push(
     vscode.languages.registerCompletionItemProvider(
-      { scheme: 'file', language: 'xml' }, new SalveCompletionProvider(grammarStore), '<', ' ', '"')
+      { scheme: 'file', language: validLang }, new SalveCompletionProvider(grammarStore), '<', ' ', '"')
   );
 
   // COMMANDS
@@ -400,13 +425,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Validate file on save
   vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-    if (document.languageId === "xml" && document.uri.scheme === "file") {
+    if (document.languageId === validLang && document.uri.scheme === "file") {
       vscode.commands.executeCommand('sxml.validate');
     }
   });
 
   vscode.workspace.onDidChangeTextDocument((event: vscode.TextDocumentChangeEvent) => {
-    if (event.document.languageId === "xml" && event.document.uri.scheme === "file") {
+    if (event.document.languageId === validLang && event.document.uri.scheme === "file") {
       doValidation();
     }
   });
@@ -419,7 +444,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Clear status after changing file or trigger validation if new file is XML.
   vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
     vscode.window.setStatusBarMessage('');
-    if (editor?.document.languageId === "xml" && editor?.document.uri.scheme === "file") {
+    if (editor?.document.languageId === validLang && editor?.document.uri.scheme === "file") {
       doValidation();
     }
   });
@@ -427,9 +452,8 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(validate, suggestAttValue, translateCursor, wrapWithEl);
   
   // Kick off on activation if the current file is XML
-  const activeEditor = vscode.window.activeTextEditor;
   if (activeEditor) {
-    if (activeEditor.document.languageId === 'xml') {
+    if (activeEditor.document.languageId === validLang) {
       doValidation();
     }
   }
