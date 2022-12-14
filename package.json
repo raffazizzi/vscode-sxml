@@ -17,9 +17,11 @@
 		"RELAX NG",
 		"text encoding",
 		"text encoding initiative",
+		"PreTeXt",
 		"digital humanities",
 		"music encoding",
 		"music encoding initiative",
+		"ODD",
 		"TEI",
 		"MEI"
 	],
@@ -30,7 +32,8 @@
 	"activationEvents": [
 		"onCommand:sxml.validate",
 		"onLanguage:xml",
-		"onLanguage:pretext"
+		"onLanguage:pretext",
+		"onLanguage:odd"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -63,7 +66,7 @@
 		],
 		"configuration": [
 			{
-				"title": "ScholarlyXML",
+				"title": "Scholarly XML",
 				"properties": {
 					"sxml.languagesToCheck": {
 						"type":"array",
@@ -80,7 +83,7 @@
 						},
 						"default": {
 							"ptx": "https://raw.githubusercontent.com/PreTeXtBook/pretext/master/schema/pretext.rng",
-							"xml": "https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_all.rng"
+							"odd": "https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_odds.rng"
 						},
 						"markdownDescription": "Dictionary of `\"language\": \"schema\"` to use as the default RELAX NG schema for files with that language or extension."
 					}

@@ -46,7 +46,7 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
   const xmlURI = activeEditor.document.uri;
 
   let extKey = activeEditor.document.fileName.split('.').pop() as keyof typeof defaultSchemas;
- 
+
   const defaultSchemas = vscode.workspace.getConfiguration("sxml").get("defaultSchemas") as {[key:string]:string};
 
   // Set schemaURL to value from settings if possible
@@ -452,7 +452,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(validate, suggestAttValue, translateCursor, wrapWithEl);
   
   // Kick off on activation if the current file is XML
-  // const activeEditor = vscode.window.activeTextEditor; (declared earlier)
   if (activeEditor) {
     if (activeEditor.document.languageId === validLang) {
       doValidation();
