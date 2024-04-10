@@ -30,6 +30,10 @@ export interface GrammarStore {
 let diagnosticCollection: vscode.DiagnosticCollection;
 const grammarStore: GrammarStore = {};
 const sch = new Schematron();
+let validations: {
+  parsePromise: Promise<void>,
+  controller: AbortController
+}[] = [];
 
 
 type TagInfo = {
@@ -287,8 +291,35 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   return error;
 }
 
-function doValidation(): void {  
+function doValidation(): void {
+
+  console.log("validating...")
+  if (validations.length > 0) {
+    console.log(validations)
+    console.log("aborting latest validation process")
+    for (const [index, v] of validations.entries()) {
+      v.controller.abort();
+      validations.splice(index, 1);
+    }
+  }
+
+  const doSchematronValidation = (): void => {
+    vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
+    console.log('Running schematron')
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+      return;
+    }
+    const fileText = activeEditor.document.getText();
+    const results = sch.validate(fileText).then((errors: any) => {
+      console.log('Ran schematron')
+      vscode.window.setStatusBarMessage('$(check) XML is valid. Schematron checked');
+      console.log(errors)
+    });
+  }
+
   const schemaInfo = locateSchema();
+
   if (schemaInfo) {
     let isNewSchema = false;
     const {schema, fileText, xmlURI} = schemaInfo;
@@ -303,21 +334,38 @@ function doValidation(): void {
       grammarStore[_xmlURI].rngURI = schema;
       isNewSchema = true;
     }
-    parse(isNewSchema, schema, fileText, _xmlURI).then((err) => {
-      switch (err) {
-        case ERR_VALID:
-          vscode.window.setStatusBarMessage('$(error) XML is not valid.');
-          break;
-        case ERR_WELLFORM:
-          vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
-          break;
-        case ERR_SCHEMA:
-          vscode.window.setStatusBarMessage('$(error) RNG schema is incorrect.');
-          break;
-        default:
-          vscode.window.setStatusBarMessage('$(check) XML is valid.');
-      }
-    });
+
+    const controller = new AbortController();
+    const parsePromise = new Promise<void>(async (resolve, reject) => {
+      controller.signal.addEventListener("abort", () => {
+        console.log("aborting", controller.signal);
+        return reject("Cancelled");
+      })
+      await parse(isNewSchema, schema, fileText, _xmlURI).then((err) => {
+        switch (err) {
+          case ERR_VALID:
+            vscode.window.setStatusBarMessage('$(error) XML is not valid.');
+            break;
+          case ERR_WELLFORM:
+            vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
+            break;
+          case ERR_SCHEMA:
+            vscode.window.setStatusBarMessage('$(error) RNG schema is incorrect.');
+            break;
+          default:
+            vscode.window.setStatusBarMessage('$(check) XML is valid.');
+            doSchematronValidation();
+        }
+        resolve();
+      }).catch(() => reject());
+    })
+
+    validations.push({
+      parsePromise,
+      controller
+    })
+
+    
   } else {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
@@ -334,11 +382,6 @@ function doValidation(): void {
         default:
           vscode.window.setStatusBarMessage('$(check) XML is well formed.');
       }
-    });
-    console.log('Running schematron')
-    const results = sch.validate(fileText).then((errors: any) => {
-      console.log('Ran schematron')
-      console.log(errors)
     });
 
   }
@@ -358,7 +401,6 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.languages.registerCompletionItemProvider(
       { scheme: 'file', language: 'xml' }, new SalveCompletionProvider(grammarStore), '<', ' ', '"')
   );
-
   // COMMANDS
   let validate = vscode.commands.registerCommand('sxml.validate', () => {
     doValidation();
