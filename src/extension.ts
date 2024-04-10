@@ -6,6 +6,7 @@ import * as path from 'path';
 import {Grammar, convertRNGToPattern, DefaultNameResolver, Name} from 'salve-annos';
 import fileUrl from "file-url";
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
+import Schematron from "schematron";
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
@@ -28,6 +29,7 @@ export interface GrammarStore {
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 const grammarStore: GrammarStore = {};
+const sch = new Schematron();
 
 
 type TagInfo = {
@@ -75,6 +77,8 @@ export async function grammarFromSource(rngSource: string): Promise<Grammar | vo
   const schemaURL = new URL(rngSource);
   try {
     const s = await convertRNGToPattern(schemaURL);
+    // s.schemaText --> use this for schematron validation
+    await sch.setRNG(s.schemaText);
     return s.pattern;
   } catch(err) {
     vscode.window.showInformationMessage('Could not parse schema.');
@@ -112,7 +116,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   // Mozilla Public License 2.0
 
   const parser = new SaxesParser({ xmlns: true, position: true });
-  let tree: void | Grammar;
+  let tree: void | Grammar | null = null;
 
   // Only get grammar from source if necessary.
   if (!isNewSchema) {
@@ -331,6 +335,12 @@ function doValidation(): void {
           vscode.window.setStatusBarMessage('$(check) XML is well formed.');
       }
     });
+    console.log('Running schematron')
+    const results = sch.validate(fileText).then((errors: any) => {
+      console.log('Ran schematron')
+      console.log(errors)
+    });
+
   }
 }
 
