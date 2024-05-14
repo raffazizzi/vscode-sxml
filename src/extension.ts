@@ -112,7 +112,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   // Mozilla Public License 2.0
 
   const parser = new SaxesParser({ xmlns: true, position: true });
-  let tree: void | Grammar;
+  let tree: void | undefined | Grammar = undefined;
 
   // Only get grammar from source if necessary.
   if (!isNewSchema) {
