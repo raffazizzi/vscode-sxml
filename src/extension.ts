@@ -6,7 +6,8 @@ import * as path from 'path';
 import {Grammar, convertRNGToPattern, DefaultNameResolver, Name} from 'salve-annos';
 import fileUrl from "file-url";
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
-import Schematron from "schematron";
+// @ts-ignore: No types defined
+import Schematron from "./tmpsch/Schematron";
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
