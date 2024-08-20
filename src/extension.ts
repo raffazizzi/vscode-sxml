@@ -8,6 +8,8 @@ import fileUrl from "file-url";
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
 // @ts-ignore: No types defined
 import Schematron from "./tmpsch/Schematron";
+import { DOMParser, XMLSerializer } from 'xmldom';
+import * as xpath from 'xpath';
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
@@ -292,6 +294,66 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   return error;
 }
 
+function convertCustomXPath(customXPath: string): string {
+  const xPathComponents = customXPath.split('/Q').filter(Boolean);
+
+  const prefixedComponents = xPathComponents.map(component => {
+      const match = component.match(/^{([^}]+)}(.*)$/);
+      if (match) {
+          const elementName = match[2];
+          return `pre:${elementName}`;
+      }
+      return component;
+  });
+
+  return prefixedComponents.join('/');
+}
+
+function getNamespaceURIFromCustomXPath(customXPath: string): string {
+  const match = customXPath.match(/^\/Q{([^}]+)}.*/);
+  return match ? match[1] : "";
+}
+
+function findLineNumber(xml: string, customXPath: string): number | null {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'text/xml');
+
+  const standardXPath = convertCustomXPath(customXPath);
+
+  const uri = getNamespaceURIFromCustomXPath(customXPath);
+  const select = xpath.useNamespaces({
+    "pre": uri
+  });
+
+
+  const nodes = select(standardXPath, doc) as Node[];
+
+  const targetNode = nodes[0] as Node;
+
+  const serializer = new XMLSerializer();
+  const nodeString = serializer.serializeToString(targetNode);
+  const cleanedNodeString = nodeString.replace(/ xmlns="[^"]*"/g, '');
+
+  const startPos = xml.indexOf(cleanedNodeString);
+  if (startPos !== -1) {
+    const xmlBeforeNode = xml.substring(0, startPos);
+    return xmlBeforeNode.split('\n').length;
+  } else {
+    console.warn('Warning: Node string not found in the XML.');
+    return null;
+  }
+}
+
+function getFirstNonWhitespaceColumn(document: vscode.TextDocument, lineNumber: number): number {
+  const lineText = document.lineAt(lineNumber).text;
+  const firstNonWhitespaceIndex = lineText.search(/\S/);
+
+  if (firstNonWhitespaceIndex === -1) {
+      return 0;
+  }
+  return firstNonWhitespaceIndex;
+}
+
 function doValidation(): void {
 
   console.log("validating...")
@@ -315,7 +377,26 @@ function doValidation(): void {
     const results = sch.validate(fileText).then((errors: any) => {
       console.log('Ran schematron')
       vscode.window.setStatusBarMessage('$(check) XML is valid. Schematron checked');
-      console.log(errors)
+      for (const err of errors) {
+        const lineNumber = findLineNumber(fileText, err.location);
+
+        if (lineNumber) {
+          const firstCharPosition = getFirstNonWhitespaceColumn(activeEditor.document, lineNumber - 1);
+          const lastCharPosition = activeEditor.document.lineAt(lineNumber - 1).range.end;
+          let range = new vscode.Range(lineNumber - 1, firstCharPosition, lineNumber - 1, lastCharPosition.character);
+
+          const schemaInfo = locateSchema();
+          if (schemaInfo) {
+            const { xmlURI } = schemaInfo;
+            const currentDiagnostics = diagnosticCollection.get(xmlURI) || [];
+            const diagnostic = new vscode.Diagnostic(range, err.text, vscode.DiagnosticSeverity.Error);
+            const updatedDiagnostics = [...currentDiagnostics, diagnostic];
+            diagnosticCollection.set(xmlURI, updatedDiagnostics);
+          }
+        }
+      }
+
+      console.log(errors);
     });
   }
 
