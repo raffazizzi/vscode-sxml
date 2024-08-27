@@ -294,14 +294,17 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   return error;
 }
 
+//xpath given by schematron has more data than needed
+//converts that custom xpath into its simpler version
+// /Q{...}tagName[index]/.../Q{...}tagName[index] ---> tagName[index]/.../tagName[index]
 function convertCustomXPath(customXPath: string): string {
   const xPathComponents = customXPath.split('/Q').filter(Boolean);
 
   const prefixedComponents = xPathComponents.map(component => {
       const match = component.match(/^{([^}]+)}(.*)$/);
       if (match) {
-          const elementName = match[2];
-          return `pre:${elementName}`;
+        const elementName = match[2];
+        return `${elementName}`;
       }
       return component;
   });
@@ -309,49 +312,75 @@ function convertCustomXPath(customXPath: string): string {
   return prefixedComponents.join('/');
 }
 
-function getNamespaceURIFromCustomXPath(customXPath: string): string {
-  const match = customXPath.match(/^\/Q{([^}]+)}.*/);
-  return match ? match[1] : "";
+//finds first and last column numbers in a given line
+//added for the look of the error reporting not underlining whitespace
+function getColumnNumbersFromLine(lineNumber: number): [number, number] | null {
+  const activeEditor = vscode.window.activeTextEditor;
+  if (!activeEditor) {
+      return null;
+  }
+
+  const lineText = activeEditor.document.lineAt(lineNumber).text;
+
+  const trimmedLineText = lineText.trim();
+
+  if (trimmedLineText.length === 0) {
+      return null;
+  }
+
+  const firstNonWhitespaceIndex = lineText.indexOf(trimmedLineText);
+  const lastNonWhitespaceIndex = firstNonWhitespaceIndex + trimmedLineText.length - 1;
+
+  return [firstNonWhitespaceIndex, lastNonWhitespaceIndex];
 }
 
-function findLineNumber(xml: string, customXPath: string): number | null {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'text/xml');
+//helper function for processXML to see if the two xpaths are a match
+function matchesXPath(currentPath: string[], xpath: string[]): boolean {
+  if (currentPath.length !== xpath.length) return false;
+  for (let i = 0; i < xpath.length; i++) {
+      if (xpath[i] !== currentPath[i] && xpath[i] !== '*') {
+          return false;
+      }
+  }
+  return true;
+}
 
-  const standardXPath = convertCustomXPath(customXPath);
+//gives the xpath expression, finds the line number using saxes parser
+async function processXML(xml: string, xpathExpression: string): Promise<[number, number]> {
+  const parser = new SaxesParser({ position: true }); 
+  const xpath = xpathExpression.split('/').filter(Boolean);
+  const currentPath: string[] = [];
+  let lastTag: string | undefined;
 
-  const uri = getNamespaceURIFromCustomXPath(customXPath);
-  const select = xpath.useNamespaces({
-    "pre": uri
+  let line = -1;
+  let column = -1;
+
+  parser.on('opentag', (node: SaxesTag) => {
+      // for when the index in xpath isn't [1]
+      const match = lastTag?.match(/^(.*)\[(\d)\]$/);
+      if (match && match[1] === node.name) {
+        currentPath.push(node.name + `[${String(Number(match[2]) + 1)}]`);
+      }
+      else {
+        currentPath.push(node.name + "[1]");
+      }
+
+      if (matchesXPath(currentPath, xpath)) {
+          line = parser.line - 1;
+          column = parser.column - 1;
+      }
   });
 
+  parser.on('closetag', () => {
+      lastTag = currentPath.pop();
+  });
 
-  const nodes = select(standardXPath, doc) as Node[];
+  parser.on('error', (error: Error) => {
+      console.error('Error:', error);
+  });
 
-  const targetNode = nodes[0] as Node;
-
-  const serializer = new XMLSerializer();
-  const nodeString = serializer.serializeToString(targetNode);
-  const cleanedNodeString = nodeString.replace(/ xmlns="[^"]*"/g, '');
-
-  const startPos = xml.indexOf(cleanedNodeString);
-  if (startPos !== -1) {
-    const xmlBeforeNode = xml.substring(0, startPos);
-    return xmlBeforeNode.split('\n').length;
-  } else {
-    console.warn('Warning: Node string not found in the XML.');
-    return null;
-  }
-}
-
-function getFirstNonWhitespaceColumn(document: vscode.TextDocument, lineNumber: number): number {
-  const lineText = document.lineAt(lineNumber).text;
-  const firstNonWhitespaceIndex = lineText.search(/\S/);
-
-  if (firstNonWhitespaceIndex === -1) {
-      return 0;
-  }
-  return firstNonWhitespaceIndex;
+  parser.write(xml).close();
+  return [line, column];
 }
 
 function doValidation(): void {
@@ -374,26 +403,25 @@ function doValidation(): void {
       return;
     }
     const fileText = activeEditor.document.getText();
-    const results = sch.validate(fileText).then((errors: any) => {
+    const results = sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
       vscode.window.setStatusBarMessage('$(check) XML is valid. Schematron checked');
+
+      diagnosticCollection.clear();
+      let diagnostics = [];
       for (const err of errors) {
-        const lineNumber = findLineNumber(fileText, err.location);
+        const xpath = convertCustomXPath(err.location);
+        const [line, column] = await processXML(fileText, xpath);
+        const [firstCharColumn, lastCharColumn] = getColumnNumbersFromLine(line) ?? [-1, -1];
 
-        if (lineNumber) {
-          const firstCharPosition = getFirstNonWhitespaceColumn(activeEditor.document, lineNumber - 1);
-          const lastCharPosition = activeEditor.document.lineAt(lineNumber - 1).range.end;
-          let range = new vscode.Range(lineNumber - 1, firstCharPosition, lineNumber - 1, lastCharPosition.character);
+        const errorRange = new vscode.Range(line, firstCharColumn, line, lastCharColumn + 1);
+        diagnostics.push(new vscode.Diagnostic(errorRange, err.text));
+      }
 
-          const schemaInfo = locateSchema();
-          if (schemaInfo) {
-            const { xmlURI } = schemaInfo;
-            const currentDiagnostics = diagnosticCollection.get(xmlURI) || [];
-            const diagnostic = new vscode.Diagnostic(range, err.text, vscode.DiagnosticSeverity.Error);
-            const updatedDiagnostics = [...currentDiagnostics, diagnostic];
-            diagnosticCollection.set(xmlURI, updatedDiagnostics);
-          }
-        }
+      const schemaInfo = locateSchema();
+      if (schemaInfo) {
+        const {xmlURI} = schemaInfo;
+        diagnosticCollection.set(xmlURI, diagnostics);
       }
 
       console.log(errors);
