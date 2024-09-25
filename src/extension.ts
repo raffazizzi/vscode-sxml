@@ -8,6 +8,8 @@ import fileUrl from "file-url";
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
 // @ts-ignore: No types defined
 import Schematron from "./tmpsch/Schematron";
+import { DOMParser, XMLSerializer } from 'xmldom';
+import * as xpath from 'xpath';
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
@@ -292,6 +294,95 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   return error;
 }
 
+//xpath given by schematron has more data than needed
+//converts that custom xpath into its simpler version
+// /Q{...}tagName[index]/.../Q{...}tagName[index] ---> tagName[index]/.../tagName[index]
+function convertCustomXPath(customXPath: string): string {
+  const xPathComponents = customXPath.split('/Q').filter(Boolean);
+
+  const prefixedComponents = xPathComponents.map(component => {
+      const match = component.match(/^{([^}]+)}(.*)$/);
+      if (match) {
+        const elementName = match[2];
+        return `${elementName}`;
+      }
+      return component;
+  });
+
+  return prefixedComponents.join('/');
+}
+
+//finds first and last column numbers in a given line
+//added for the look of the error reporting not underlining whitespace
+function getColumnNumbersFromLine(lineNumber: number): [number, number] | null {
+  const activeEditor = vscode.window.activeTextEditor;
+  if (!activeEditor) {
+      return null;
+  }
+
+  const lineText = activeEditor.document.lineAt(lineNumber).text;
+
+  const trimmedLineText = lineText.trim();
+
+  if (trimmedLineText.length === 0) {
+      return null;
+  }
+
+  const firstNonWhitespaceIndex = lineText.indexOf(trimmedLineText);
+  const lastNonWhitespaceIndex = firstNonWhitespaceIndex + trimmedLineText.length - 1;
+
+  return [firstNonWhitespaceIndex, lastNonWhitespaceIndex];
+}
+
+//helper function for processXML to see if the two xpaths are a match
+function matchesXPath(currentPath: string[], xpath: string[]): boolean {
+  if (currentPath.length !== xpath.length) return false;
+  for (let i = 0; i < xpath.length; i++) {
+      if (xpath[i] !== currentPath[i] && xpath[i] !== '*') {
+          return false;
+      }
+  }
+  return true;
+}
+
+//gives the xpath expression, finds the line number using saxes parser
+async function processXML(xml: string, xpathExpression: string): Promise<[number, number]> {
+  const parser = new SaxesParser({ position: true }); 
+  const xpath = xpathExpression.split('/').filter(Boolean);
+  const currentPath: string[] = [];
+  let lastTag: string | undefined;
+
+  let line = -1;
+  let column = -1;
+
+  parser.on('opentag', (node: SaxesTag) => {
+      // for when the index in xpath isn't [1]
+      const match = lastTag?.match(/^(.*)\[(\d)\]$/);
+      if (match && match[1] === node.name) {
+        currentPath.push(node.name + `[${String(Number(match[2]) + 1)}]`);
+      }
+      else {
+        currentPath.push(node.name + "[1]");
+      }
+
+      if (matchesXPath(currentPath, xpath)) {
+          line = parser.line - 1;
+          column = parser.column - 1;
+      }
+  });
+
+  parser.on('closetag', () => {
+      lastTag = currentPath.pop();
+  });
+
+  parser.on('error', (error: Error) => {
+      console.error('Error:', error);
+  });
+
+  parser.write(xml).close();
+  return [line, column];
+}
+
 function doValidation(): void {
 
   console.log("validating...")
@@ -312,10 +403,28 @@ function doValidation(): void {
       return;
     }
     const fileText = activeEditor.document.getText();
-    const results = sch.validate(fileText).then((errors: any) => {
+    const results = sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
       vscode.window.setStatusBarMessage('$(check) XML is valid. Schematron checked');
-      console.log(errors)
+
+      diagnosticCollection.clear();
+      let diagnostics = [];
+      for (const err of errors) {
+        const xpath = convertCustomXPath(err.location);
+        const [line, column] = await processXML(fileText, xpath);
+        const [firstCharColumn, lastCharColumn] = getColumnNumbersFromLine(line) ?? [-1, -1];
+
+        const errorRange = new vscode.Range(line, firstCharColumn, line, lastCharColumn + 1);
+        diagnostics.push(new vscode.Diagnostic(errorRange, err.text));
+      }
+
+      const schemaInfo = locateSchema();
+      if (schemaInfo) {
+        const {xmlURI} = schemaInfo;
+        diagnosticCollection.set(xmlURI, diagnostics);
+      }
+
+      console.log(errors);
     });
   }
 
