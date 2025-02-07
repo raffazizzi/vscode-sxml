@@ -405,6 +405,7 @@ function doValidation(): void {
     const fileText = activeEditor.document.getText();
     const results = sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
+      vscode.window.setStatusBarMessage(errors ? `$(error) XML is valid. Schema errors: ${errors.length}` : `$(check) XML is valid.`);
 
       diagnosticCollection.clear();
       let diagnostics = [];
@@ -412,9 +413,10 @@ function doValidation(): void {
         for (const err of errors) {
           const xpath = convertCustomXPath(err.location);
           const [line, column] = await processXML(fileText, xpath);
+          console.log(column)
           const [firstCharColumn, lastCharColumn] = getColumnNumbersFromLine(line) ?? [-1, -1];
 
-          const errorRange = new vscode.Range(line, firstCharColumn, line, lastCharColumn + 1);
+          const errorRange = new vscode.Range(line, firstCharColumn, line, column);
           diagnostics.push(new vscode.Diagnostic(errorRange, err.text));
         }
       }
@@ -424,7 +426,6 @@ function doValidation(): void {
         const {xmlURI} = schemaInfo;
         diagnosticCollection.set(xmlURI, diagnostics);
       }
-      vscode.window.setStatusBarMessage(errors ? `$(check) XML is invalid. There are ${errors.length} issues` : `$(check) XML is valid.`);
       console.log(errors ? "No errors" : errors);
     });
   }

@@ -20,9 +20,9 @@
          <head>Example</head>
          <div>
             <pb n="1" facs="p1"/>
-            <!-- <p>Here is a date: <date from="1800" to="1899" notBefore="1800">19th century</date></p>
             <p>Here is a date: <date from="1800" to="1899" notBefore="1800">19th century</date></p>
-            <p>Here is a date: <date from="1800" to="1899" notBefore="1800">19th century</date></p> -->
+            <p>Here is a date: <date from="1800" to="1899" notBefore="1800">19th century</date></p>
+            <p>Here is a date: <date from="1800" to="1899" notBefore="1800">19th century</date></p>
             <pb n="2"/>
             <p>
                First footnote (default) <ptr target="#fn1" n="1"/>
