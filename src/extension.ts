@@ -8,8 +8,8 @@ import fileUrl from "file-url";
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
 // @ts-ignore: No types defined
 import Schematron from "./tmpsch/Schematron";
-import { DOMParser, XMLSerializer } from 'xmldom';
-import * as xpath from 'xpath';
+// import { DOMParser, XMLSerializer } from 'xmldom';
+// import * as xpath from 'xpath';
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
@@ -405,17 +405,18 @@ function doValidation(): void {
     const fileText = activeEditor.document.getText();
     const results = sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
-      vscode.window.setStatusBarMessage('$(check) XML is valid. Schematron checked');
 
       diagnosticCollection.clear();
       let diagnostics = [];
-      for (const err of errors) {
-        const xpath = convertCustomXPath(err.location);
-        const [line, column] = await processXML(fileText, xpath);
-        const [firstCharColumn, lastCharColumn] = getColumnNumbersFromLine(line) ?? [-1, -1];
+      if (errors){
+        for (const err of errors) {
+          const xpath = convertCustomXPath(err.location);
+          const [line, column] = await processXML(fileText, xpath);
+          const [firstCharColumn, lastCharColumn] = getColumnNumbersFromLine(line) ?? [-1, -1];
 
-        const errorRange = new vscode.Range(line, firstCharColumn, line, lastCharColumn + 1);
-        diagnostics.push(new vscode.Diagnostic(errorRange, err.text));
+          const errorRange = new vscode.Range(line, firstCharColumn, line, lastCharColumn + 1);
+          diagnostics.push(new vscode.Diagnostic(errorRange, err.text));
+        }
       }
 
       const schemaInfo = locateSchema();
@@ -423,8 +424,8 @@ function doValidation(): void {
         const {xmlURI} = schemaInfo;
         diagnosticCollection.set(xmlURI, diagnostics);
       }
-
-      console.log(errors);
+      vscode.window.setStatusBarMessage(errors ? `$(check) XML is invalid. There are ${errors.length} issues` : `$(check) XML is valid.`);
+      console.log(errors ? "No errors" : errors);
     });
   }
 

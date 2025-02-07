@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+   <teiHeader>
+      <fileDesc>
+         <titleStmt>
+            <title>A title</title>
+         </titleStmt>
+         <publicationStmt>
+            <p/>
+         </publicationStmt>
+         <sourceDesc>
+            <p/>
+         </sourceDesc>
+      </fileDesc>
+   </teiHeader>
+   <text>
+      <body>
+         <head>Example</head>
+         <div>
+            <pb n="1" facs="p1"/>
+            
+            <pb n="2"/>
+            <p>
+               First footnote (default) <ptr target="#fn1" n="1"/>
+            </p>
+            <p>
+               Second footnote (person) <ptr target="#fn2" n="2"/>
+            </p>
+            <p>
+               Third footnote (source) <ptr target="#fn3" n="3"/>
+            </p>
+            <p>
+               Fourth footnote (critical) <ptr target="#fn4" n="4"/>
+            </p>
+            <p>
+               Fifth footnote (editorial) <ptr target="#fn5" n="5"/>
+            </p>
+         </div>
+      </body>
+   </text>
+   <standOff>
+      <note xml:id="fn1">Default note</note>
+      <note xml:id="fn2" type="person">Person note</note>
+      <note xml:id="fn3" type="source">Source note</note>
+      <note xml:id="fn4" type="critical">Critical note</note>
+      <note xml:id="fn5" type="editorial">Editorial note</note>
+   </standOff>
+</TEI>
