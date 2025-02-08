@@ -1,0 +1,9 @@
+TODO:
+
+Run schemtron in all cases EXCEPT WHEN MALFORMED
+
+Adress Datatype error to underline attribute
+
+Otherwise underline opening tag
+
+Fix Status bar showing XML is valid when invalid XML but valid Schema

@@ -346,41 +346,98 @@ function matchesXPath(currentPath: string[], xpath: string[]): boolean {
 }
 
 //gives the xpath expression, finds the line number using saxes parser
-async function processXML(xml: string, xpathExpression: string): Promise<[number, number]> {
-  const parser = new SaxesParser({ position: true }); 
+// async function processXML(xml: string, xpathExpression: string): Promise<[number,number, number]> {
+//   const parser = new SaxesParser({ position: true }); 
+//   const xpath = xpathExpression.split('/').filter(Boolean);
+//   const currentPath: string[] = [];
+//   let lastTag: string | undefined;
+
+//   let line = -1;
+//   let column = -1;
+
+//   parser.on('opentag', (node: SaxesTag) => {
+//       // for when the index in xpath isn't [1]
+//       const match = lastTag?.match(/^(.*)\[(\d)\]$/);
+//       if (match && match[1] === node.name) {
+//         currentPath.push(node.name + `[${String(Number(match[2]) + 1)}]`);
+//       }
+//       else {
+//         currentPath.push(node.name + "[1]");
+//       }
+
+//       if (matchesXPath(currentPath, xpath)) {
+//           line = parser.line - 1;
+//           column = parser.column - 1;
+//       }
+//   });
+
+//   parser.on('closetag', () => {
+//       lastTag = currentPath.pop();
+//   });
+
+//   parser.on('error', (error: Error) => {
+//       console.error('Error:', error);
+//   });
+
+//   parser.write(xml).close();
+//   return [line,0, column];
+// }
+
+// gives the xpath expression, finds the line number using saxes parser
+async function processXML(xml: string, xpathExpression: string): Promise<[number, number, number, number]> {
+  const parser = new SaxesParser({ position: true });
   const xpath = xpathExpression.split('/').filter(Boolean);
   const currentPath: string[] = [];
   let lastTag: string | undefined;
 
-  let line = -1;
-  let column = -1;
+  // Track start/end positions of the opening tag
+  let startLine = -1;
+  let startColumn = -1;
+  let endLine = -1;
+  let endColumn = -1;
+  const tagStartStack: Array<{ line: number, column: number }> = [];
+
+  parser.on('opentagstart', () => {
+    // Record the position where the opening tag starts ("<")
+    tagStartStack.push({
+      line: parser.line - 1, // Convert to 0-based
+      column: parser.column - 1,
+    });
+  });
 
   parser.on('opentag', (node: SaxesTag) => {
-      // for when the index in xpath isn't [1]
-      const match = lastTag?.match(/^(.*)\[(\d)\]$/);
-      if (match && match[1] === node.name) {
-        currentPath.push(node.name + `[${String(Number(match[2]) + 1)}]`);
-      }
-      else {
-        currentPath.push(node.name + "[1]");
-      }
+    // Get the start position from the stack
+    const tagStart = tagStartStack.pop();
+    if (!tagStart) return;
 
-      if (matchesXPath(currentPath, xpath)) {
-          line = parser.line - 1;
-          column = parser.column - 1;
-      }
+    // Update currentPath (existing logic)
+    const match = lastTag?.match(/^(.*)\[(\d+)\]$/);
+    if (match && match[1] === node.name) {
+      currentPath.push(`${node.name}[${Number(match[2]) + 1}]`);
+    } else {
+      currentPath.push(`${node.name}[1]`);
+    }
+
+    // Check if this tag matches the XPath
+    if (matchesXPath(currentPath, xpath)) {
+      // get start/end positions of the opening tag
+      startLine = tagStart.line;
+      startColumn = tagStart.column;
+      endLine = parser.line - 1; // Position after ">"
+      endColumn = parser.column - 1;
+    }
   });
 
   parser.on('closetag', () => {
-      lastTag = currentPath.pop();
+    lastTag = currentPath.pop();
   });
 
   parser.on('error', (error: Error) => {
-      console.error('Error:', error);
+    console.error('Error:', error);
   });
 
   parser.write(xml).close();
-  return [line, column];
+  return [startLine, startColumn, endLine, endColumn];
 }
 
 function doValidation(): void {
@@ -395,7 +452,7 @@ function doValidation(): void {
     }
   }
 
-  const doSchematronValidation = (): void => {
+  const doSchematronValidation = (message: string): void => {
     vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
     console.log('Running schematron')
     const activeEditor = vscode.window.activeTextEditor;
@@ -405,18 +462,18 @@ function doValidation(): void {
     const fileText = activeEditor.document.getText();
     const results = sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
-      vscode.window.setStatusBarMessage(errors ? `$(error) XML is valid. Schema errors: ${errors.length}` : `$(check) XML is valid.`);
+      vscode.window.setStatusBarMessage(errors ? `${message} Schema errors: ${errors.length}` : message);
 
       diagnosticCollection.clear();
       let diagnostics = [];
+
+
       if (errors){
         for (const err of errors) {
           const xpath = convertCustomXPath(err.location);
-          const [line, column] = await processXML(fileText, xpath);
-          console.log(column)
-          const [firstCharColumn, lastCharColumn] = getColumnNumbersFromLine(line) ?? [-1, -1];
+          const [startLine, startColumn, endLine, endColumn] = await processXML(fileText, xpath);
 
-          const errorRange = new vscode.Range(line, firstCharColumn, line, column);
+          const errorRange = new vscode.Range(startLine, startColumn, endLine, endColumn);
           diagnostics.push(new vscode.Diagnostic(errorRange, err.text));
         }
       }
@@ -426,7 +483,6 @@ function doValidation(): void {
         const {xmlURI} = schemaInfo;
         diagnosticCollection.set(xmlURI, diagnostics);
       }
-      console.log(errors ? "No errors" : errors);
     });
   }
 
@@ -454,19 +510,21 @@ function doValidation(): void {
         return reject("Cancelled");
       })
       await parse(isNewSchema, schema, fileText, _xmlURI).then((err) => {
+        let errCount;
         switch (err) {
           case ERR_VALID:
-            vscode.window.setStatusBarMessage('$(error) XML is not valid.');
+            console.log("XML is not valid.")
+            doSchematronValidation("$(error) XML is not valid.");
             break;
           case ERR_WELLFORM:
             vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
             break;
           case ERR_SCHEMA:
-            vscode.window.setStatusBarMessage('$(error) RNG schema is incorrect.');
+            doSchematronValidation("$(error) RNG schema is incorrect.");
+            console.log("RNG schema is incorrect.");
             break;
           default:
-            vscode.window.setStatusBarMessage('$(check) XML is valid.');
-            doSchematronValidation();
+            doSchematronValidation("$(check) XML is valid.");
         }
         resolve();
       }).catch(() => reject());
