@@ -16,6 +16,7 @@ const ERR_WELLFORM = 'ERR_WELLFORM';
 const ERR_SCHEMA = 'ERR_SCHEMA';
 const NO_ERR = 'NO_ERR';
 
+
 // XML Name regex (minus : and [#x10000-#xEFFFF] range)
 const nameStartChar = new RegExp(/_|[A-Z]|[a-z]|[\u00C0-\u00D6]|[\u00D8-\u00F6]|[\u00F8-\u02FF]|[\u0370-\u037D]|[\u037F-\u1FFF]|[\u200C-\u200D]|[\u2070-\u218F]|[\u2C00-\u2FEF]|[\u3001-\uD7FF]|[\uF900-\uFDCF]|[\uFDF0-\uFFFD]/);
 const nameChar = new RegExp(`${nameStartChar.source}|-|\\.|[0-9]|\u00B7|[\u0300-\u036F]|[\u203F-\u2040]`);
@@ -117,13 +118,14 @@ async function parseWithoutSchema(xmlSource: string, xmlURI: string): Promise<St
   return error;
 }
 
-async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string, xmlURI: string): Promise<String> {
+async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string, xmlURI: string): Promise<{errorType: string, errorCount: number, diagnostics: vscode.Diagnostic[]}> {
   // Parsing function adapted from 
   // https://github.com/mangalam-research/salve/blob/0fd149e44bc422952d3b095bfa2cdd8bf76dd15c/lib/salve/parse.ts
   // Mozilla Public License 2.0
 
   const parser = new SaxesParser({ xmlns: true, position: true });
   let tree: void | Grammar | null = null;
+  let errorCount = 0;
 
   // Only get grammar from source if necessary.
   if (!isNewSchema) {
@@ -135,7 +137,12 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   if (tree) {
     grammarStore[xmlURI].grammar = tree;
   } else {
-    return ERR_SCHEMA;
+    errorCount++;
+    return {
+      errorType: ERR_SCHEMA,  
+      errorCount: errorCount, 
+      diagnostics: []
+    };
   }
 
 	const nameResolver = new DefaultNameResolver();
@@ -151,6 +158,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
 		const ret = walker.fireEvent(name, args);
     if (ret instanceof Array) {
       error = ERR_VALID;
+      errorCount += ret.length;
 			for (const err of ret) {
         let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
         let diagnostics = diagnosticMap.get(xmlURI);
@@ -225,6 +233,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
       flushTextBuf();
       const tagInfo = tagStack.pop();
       if (tagInfo === undefined) {
+        errorCount++;
         throw new Error("stack underflow");
       }
       fireEvent("endTag", [tagInfo.uri, tagInfo.local]);
@@ -259,6 +268,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
           parser.ENTITIES[name] = value;
         }
         else {
+          errorCount++;
           throw new Error(`unexpected construct in DOCTYPE: ${doctype}`);
         }
       }
@@ -268,6 +278,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
       const result = walker.end();
       if (result !== false) {
         error = ERR_WELLFORM;
+        errorCount+=result.length;
         for (const err of result) {
           console.log(`on end`);
           console.log(err.toString());
@@ -277,6 +288,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   
     parser.write(xmlSource).close();
   } catch(err) {
+    errorCount++;
     const e = err as Error
     error = ERR_WELLFORM;
     let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
@@ -291,7 +303,11 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
     diagnosticCollection.set(vscode.Uri.parse(file), diags);
   });
 
-  return error;
+  return {
+    errorType: error,
+    errorCount: errorCount,
+    diagnostics: diagnosticMap.get(xmlURI) || [],
+  };
 }
 
 //xpath given by schematron has more data than needed
@@ -452,7 +468,7 @@ function doValidation(): void {
     }
   }
 
-  const doSchematronValidation = (message: string): void => {
+  const doSchematronValidation = (message: string, errorCount: number, diagnostics: vscode.Diagnostic[]): void => {
     vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
     console.log('Running schematron')
     const activeEditor = vscode.window.activeTextEditor;
@@ -462,10 +478,10 @@ function doValidation(): void {
     const fileText = activeEditor.document.getText();
     const results = sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
-      vscode.window.setStatusBarMessage(errors ? `${message} Schema errors: ${errors.length}` : message);
+      vscode.window.setStatusBarMessage(errors ? `${message} Errors: ${errors.length + errorCount}` : message);
 
       diagnosticCollection.clear();
-      let diagnostics = [];
+      let schematronDiagnostics = [];
 
 
       if (errors){
@@ -474,14 +490,14 @@ function doValidation(): void {
           const [startLine, startColumn, endLine, endColumn] = await processXML(fileText, xpath);
 
           const errorRange = new vscode.Range(startLine, startColumn, endLine, endColumn);
-          diagnostics.push(new vscode.Diagnostic(errorRange, err.text));
+          schematronDiagnostics.push(new vscode.Diagnostic(errorRange, err.text));
         }
       }
 
       const schemaInfo = locateSchema();
       if (schemaInfo) {
         const {xmlURI} = schemaInfo;
-        diagnosticCollection.set(xmlURI, diagnostics);
+        diagnosticCollection.set(xmlURI, diagnostics.concat(schematronDiagnostics));
       }
     });
   }
@@ -509,22 +525,21 @@ function doValidation(): void {
         console.log("aborting", controller.signal);
         return reject("Cancelled");
       })
-      await parse(isNewSchema, schema, fileText, _xmlURI).then((err) => {
-        let errCount;
-        switch (err) {
+      await parse(isNewSchema, schema, fileText, _xmlURI).then(({errorType, errorCount, diagnostics}) => {
+        switch (errorType) {
           case ERR_VALID:
-            console.log("XML is not valid.")
-            doSchematronValidation("$(error) XML is not valid.");
+            console.log("XML is not valid.");
+            doSchematronValidation("$(error) XML is not valid.", errorCount, diagnostics);
             break;
           case ERR_WELLFORM:
             vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
             break;
           case ERR_SCHEMA:
-            doSchematronValidation("$(error) RNG schema is incorrect.");
+            doSchematronValidation("$(error) RNG schema is incorrect.", errorCount, diagnostics);
             console.log("RNG schema is incorrect.");
             break;
           default:
-            doSchematronValidation("$(check) XML is valid.");
+            doSchematronValidation("$(check) XML is valid.", errorCount, diagnostics);
         }
         resolve();
       }).catch(() => reject());
