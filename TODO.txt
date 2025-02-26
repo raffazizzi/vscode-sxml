@@ -1,4 +1,3 @@
 TODO:
-Make underline work when XML not valid
 
-Adress Datatype error to underline attribute
+fix RNG underline to be more accurate

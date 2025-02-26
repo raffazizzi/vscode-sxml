@@ -159,21 +159,59 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
     if (ret instanceof Array) {
       error = ERR_VALID;
       errorCount += ret.length;
-			for (const err of ret) {
-        let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
+
+			// for (const err of ret) {
+      //   console.log(parser)
+      //   let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
+      //   let diagnostics = diagnosticMap.get(xmlURI);
+      //   if (!diagnostics) { diagnostics = []; }
+      //   const names = err.getNames();
+      //   // TODO: Temporarily setting this to any
+      //   const namesMsg = names.map((n: any) => {
+      //     const name = n.toJSON();
+      //     let ns = name.ns ? `(${name.ns})` : '';
+      //     return `"${name.name}" ${ns}`;
+      //   }).join(' ');
+      //   diagnostics.push(new vscode.Diagnostic(range, 
+      //     `${err.msg} — ${namesMsg}`));
+      //   diagnosticMap.set(xmlURI, diagnostics);
+      // }
+
+      for (const err of ret) {
+        const lineNumber = parser.line - 1; // Convert to 0-based line
+        const errorColumn = parser.column; // Assuming this is 1-based column
+    
+        let startColumn = 0;
+        const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === xmlURI.toString());
+        if (document) {
+            const lineText = document.lineAt(lineNumber).text;
+            let errorCol0 = errorColumn - 1; // Convert to 0-based
+            errorCol0 = Math.min(errorCol0, lineText.length - 1); // Ensure within bounds
+    
+            // Find the start of the tag by searching for '<' before the error column
+            for (let i = errorCol0; i >= 0; i--) {
+                if (lineText[i] === '<') {
+                    startColumn = i;
+                    break;
+                }
+            }
+        }
+    
+        // Create range from the start of the tag to the error column
+        let range = new vscode.Range(lineNumber, startColumn, lineNumber, errorColumn);
         let diagnostics = diagnosticMap.get(xmlURI);
         if (!diagnostics) { diagnostics = []; }
+    
         const names = err.getNames();
-        // TODO: Temporarily setting this to any
-        const namesMsg = names.map((n: any) => {
-          const name = n.toJSON();
-          let ns = name.ns ? `(${name.ns})` : '';
-          return `"${name.name}" ${ns}`;
+        const namesMsg = names.map((n) => {
+            const name = n.toJSON();
+            let ns = name.ns ? `(${name.ns})` : '';
+            return `"${name.name}" ${ns}`;
         }).join(' ');
-        diagnostics.push(new vscode.Diagnostic(range, 
-          `${err.msg} — ${namesMsg}`));
+    
+        diagnostics.push(new vscode.Diagnostic(range, `${err.msg} — ${namesMsg}`));
         diagnosticMap.set(xmlURI, diagnostics);
-      }
+    }
     }
   }
 
@@ -328,8 +366,9 @@ function convertCustomXPath(customXPath: string): string {
   return prefixedComponents.join('/');
 }
 
-//finds first and last column numbers in a given line
-//added for the look of the error reporting not underlining whitespace
+// finds first and last column numbers in a given line
+// added for the look of the error reporting not underlining whitespace
+// No longer used
 function getColumnNumbersFromLine(lineNumber: number): [number, number] | null {
   const activeEditor = vscode.window.activeTextEditor;
   if (!activeEditor) {
@@ -470,20 +509,23 @@ function doValidation(): void {
 
   const doSchematronValidation = (message: string, errorCount: number, diagnostics: vscode.Diagnostic[]): void => {
     vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
+    console.log(message)
     console.log('Running schematron')
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
       return;
     }
-    const fileText = activeEditor.document.getText();
+    const fileText = activeEditor.document.getText(); 
+
     const results = sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
-      vscode.window.setStatusBarMessage(errors ? `${message} Errors: ${errors.length + errorCount}` : message);
+      const totalErrors = errors ?  errors.length + errorCount : errorCount
+      vscode.window.setStatusBarMessage(totalErrors ? `${message} Errors: ${totalErrors}` : message);
 
       diagnosticCollection.clear();
       let schematronDiagnostics = [];
 
-
+      console.log(errors)
       if (errors){
         for (const err of errors) {
           const xpath = convertCustomXPath(err.location);
@@ -529,16 +571,19 @@ function doValidation(): void {
         switch (errorType) {
           case ERR_VALID:
             console.log("XML is not valid.");
+            vscode.window.setStatusBarMessage('$(gear~spin) XML is not valid; checking Schematron');
             doSchematronValidation("$(error) XML is not valid.", errorCount, diagnostics);
             break;
           case ERR_WELLFORM:
             vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
             break;
           case ERR_SCHEMA:
+            vscode.window.setStatusBarMessage('$(gear~spin) RNG schema is incorrect; checking Schematron');
             doSchematronValidation("$(error) RNG schema is incorrect.", errorCount, diagnostics);
             console.log("RNG schema is incorrect.");
             break;
           default:
+            vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
             doSchematronValidation("$(check) XML is valid.", errorCount, diagnostics);
         }
         resolve();
