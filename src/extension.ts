@@ -450,16 +450,18 @@ function doValidation(): void {
 
   const doSchematronValidation = (message: string, errorCount: number, diagnostics: vscode.Diagnostic[]): void => {
     console.log('Running schematron')
+    vscode.window.setStatusBarMessage(`$(gear~spin) ${message}; checking Schematron`)
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
       return;
     }
     const fileText = activeEditor.document.getText(); 
 
-    const results = sch.validate(fileText).then(async (errors: any) => {
+    setTimeout(() => { 
+      sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
       const totalErrors = errors ?  errors.length + errorCount : errorCount
-      vscode.window.setStatusBarMessage(totalErrors ? `${message} Errors: ${totalErrors}` : message);
+      vscode.window.setStatusBarMessage(totalErrors ? `$(error) ${message} Errors: ${totalErrors}` : `$(check) ${message}`);
 
       diagnosticCollection.clear();
       let schematronDiagnostics = [];
@@ -480,7 +482,32 @@ function doValidation(): void {
         const {xmlURI} = schemaInfo;
         diagnosticCollection.set(xmlURI, diagnostics.concat(schematronDiagnostics));
       }
-    });
+    });},50)
+  //   const results = sch.validate(fileText).then(async (errors: any) => {
+  //     console.log('Ran schematron')
+  //     const totalErrors = errors ?  errors.length + errorCount : errorCount
+  //     vscode.window.setStatusBarMessage(totalErrors ? `${message} Errors: ${totalErrors}` : message);
+
+  //     diagnosticCollection.clear();
+  //     let schematronDiagnostics = [];
+
+  //     console.log(errors)
+  //     if (errors){
+  //       for (const err of errors) {
+  //         const xpath = convertCustomXPath(err.location);
+  //         const [startLine, startColumn, endLine, endColumn] = await processXML(fileText, xpath);
+
+  //         const errorRange = new vscode.Range(startLine, startColumn, endLine, endColumn);
+  //         schematronDiagnostics.push(new vscode.Diagnostic(errorRange, err.text));
+  //       }
+  //     }
+
+  //     const schemaInfo = locateSchema();
+  //     if (schemaInfo) {
+  //       const {xmlURI} = schemaInfo;
+  //       diagnosticCollection.set(xmlURI, diagnostics.concat(schematronDiagnostics));
+  //     }
+  //   });
   }
 
   const schemaInfo = locateSchema();
@@ -512,22 +539,20 @@ function doValidation(): void {
         switch (errorType) {
           case ERR_VALID:
             console.log("XML is not valid.");
-            vscode.window.setStatusBarMessage('$(gear~spin) XML is not valid; checking Schematron');
-            setTimeout(() => {
-              doSchematronValidation("$(error) XML is not valid", errorCount, diagnostics);
-            }, 50);
+            // vscode.window.setStatusBarMessage('XML is not valid; checking Schematron');
+              doSchematronValidation("XML is not valid", errorCount, diagnostics);
             break;
           case ERR_WELLFORM:
             vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
             break;
           case ERR_SCHEMA:
-            vscode.window.setStatusBarMessage('$(gear~spin) RNG schema is incorrect; checking Schematron');
-            doSchematronValidation("$(error) RNG schema is incorrect.", errorCount, diagnostics);
+            // vscode.window.setStatusBarMessage('$(gear~spin) RNG schema is incorrect; checking Schematron');
+            doSchematronValidation("RNG schema is incorrect.", errorCount, diagnostics);
             console.log("RNG schema is incorrect.");
             break;
           default:
-            vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
-            doSchematronValidation("$(check) XML is valid.", errorCount, diagnostics);
+            // vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
+            doSchematronValidation("XML is valid.", errorCount, diagnostics);
         }
         resolve();
       }).catch(() => reject());
