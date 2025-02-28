@@ -179,7 +179,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
 
       for (const err of ret) {
         const lineNumber = parser.line - 1; // Convert to 0-based line
-        const errorColumn = parser.column; // Assuming this is 1-based column
+        const errorColumn = parser.column;
     
         let startColumn = 0;
         const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === xmlURI.toString());
@@ -366,28 +366,6 @@ function convertCustomXPath(customXPath: string): string {
   return prefixedComponents.join('/');
 }
 
-// finds first and last column numbers in a given line
-// added for the look of the error reporting not underlining whitespace
-// No longer used
-function getColumnNumbersFromLine(lineNumber: number): [number, number] | null {
-  const activeEditor = vscode.window.activeTextEditor;
-  if (!activeEditor) {
-      return null;
-  }
-
-  const lineText = activeEditor.document.lineAt(lineNumber).text;
-
-  const trimmedLineText = lineText.trim();
-
-  if (trimmedLineText.length === 0) {
-      return null;
-  }
-
-  const firstNonWhitespaceIndex = lineText.indexOf(trimmedLineText);
-  const lastNonWhitespaceIndex = firstNonWhitespaceIndex + trimmedLineText.length - 1;
-
-  return [firstNonWhitespaceIndex, lastNonWhitespaceIndex];
-}
 
 //helper function for processXML to see if the two xpaths are a match
 function matchesXPath(currentPath: string[], xpath: string[]): boolean {
@@ -400,43 +378,6 @@ function matchesXPath(currentPath: string[], xpath: string[]): boolean {
   return true;
 }
 
-//gives the xpath expression, finds the line number using saxes parser
-// async function processXML(xml: string, xpathExpression: string): Promise<[number,number, number]> {
-//   const parser = new SaxesParser({ position: true }); 
-//   const xpath = xpathExpression.split('/').filter(Boolean);
-//   const currentPath: string[] = [];
-//   let lastTag: string | undefined;
-
-//   let line = -1;
-//   let column = -1;
-
-//   parser.on('opentag', (node: SaxesTag) => {
-//       // for when the index in xpath isn't [1]
-//       const match = lastTag?.match(/^(.*)\[(\d)\]$/);
-//       if (match && match[1] === node.name) {
-//         currentPath.push(node.name + `[${String(Number(match[2]) + 1)}]`);
-//       }
-//       else {
-//         currentPath.push(node.name + "[1]");
-//       }
-
-//       if (matchesXPath(currentPath, xpath)) {
-//           line = parser.line - 1;
-//           column = parser.column - 1;
-//       }
-//   });
-
-//   parser.on('closetag', () => {
-//       lastTag = currentPath.pop();
-//   });
-
-//   parser.on('error', (error: Error) => {
-//       console.error('Error:', error);
-//   });
-
-//   parser.write(xml).close();
-//   return [line,0, column];
-// }
 
 // gives the xpath expression, finds the line number using saxes parser
 async function processXML(xml: string, xpathExpression: string): Promise<[number, number, number, number]> {
@@ -508,8 +449,6 @@ function doValidation(): void {
   }
 
   const doSchematronValidation = (message: string, errorCount: number, diagnostics: vscode.Diagnostic[]): void => {
-    vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
-    console.log(message)
     console.log('Running schematron')
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
@@ -567,12 +506,16 @@ function doValidation(): void {
         console.log("aborting", controller.signal);
         return reject("Cancelled");
       })
+
+
       await parse(isNewSchema, schema, fileText, _xmlURI).then(({errorType, errorCount, diagnostics}) => {
         switch (errorType) {
           case ERR_VALID:
             console.log("XML is not valid.");
             vscode.window.setStatusBarMessage('$(gear~spin) XML is not valid; checking Schematron');
-            doSchematronValidation("$(error) XML is not valid.", errorCount, diagnostics);
+            setTimeout(() => {
+              doSchematronValidation("$(error) XML is not valid", errorCount, diagnostics);
+            }, 50);
             break;
           case ERR_WELLFORM:
             vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
