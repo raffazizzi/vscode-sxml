@@ -377,7 +377,7 @@ async function processXML(xml: string, xpathExpression: string): Promise<[number
   const tagStartStack: Array<{ line: number, column: number }> = [];
 
   parser.on('opentagstart', () => {
-    // Record the position where the opening tag starts ("<")
+    // Record the position where the opening tag starts
     tagStartStack.push({
       line: parser.line - 1, // Convert to 0-based
       column: parser.column - 1,
@@ -389,7 +389,7 @@ async function processXML(xml: string, xpathExpression: string): Promise<[number
     const tagStart = tagStartStack.pop();
     if (!tagStart) return;
 
-    // Update currentPath (existing logic)
+    // Update currentPath
     const match = lastTag?.match(/^(.*)\[(\d+)\]$/);
     if (match && match[1] === node.name) {
       currentPath.push(`${node.name}[${Number(match[2]) + 1}]`);
