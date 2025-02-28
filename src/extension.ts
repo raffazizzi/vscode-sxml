@@ -160,23 +160,6 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
       error = ERR_VALID;
       errorCount += ret.length;
 
-			// for (const err of ret) {
-      //   console.log(parser)
-      //   let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
-      //   let diagnostics = diagnosticMap.get(xmlURI);
-      //   if (!diagnostics) { diagnostics = []; }
-      //   const names = err.getNames();
-      //   // TODO: Temporarily setting this to any
-      //   const namesMsg = names.map((n: any) => {
-      //     const name = n.toJSON();
-      //     let ns = name.ns ? `(${name.ns})` : '';
-      //     return `"${name.name}" ${ns}`;
-      //   }).join(' ');
-      //   diagnostics.push(new vscode.Diagnostic(range, 
-      //     `${err.msg} — ${namesMsg}`));
-      //   diagnosticMap.set(xmlURI, diagnostics);
-      // }
-
       for (const err of ret) {
         const lineNumber = parser.line - 1; // Convert to 0-based line
         const errorColumn = parser.column;
@@ -457,6 +440,7 @@ function doValidation(): void {
     }
     const fileText = activeEditor.document.getText(); 
 
+    // Manual timeout to ensure UI updates take place (50ms)
     setTimeout(() => { 
       sch.validate(fileText).then(async (errors: any) => {
       console.log('Ran schematron')
@@ -483,31 +467,6 @@ function doValidation(): void {
         diagnosticCollection.set(xmlURI, diagnostics.concat(schematronDiagnostics));
       }
     });},50)
-  //   const results = sch.validate(fileText).then(async (errors: any) => {
-  //     console.log('Ran schematron')
-  //     const totalErrors = errors ?  errors.length + errorCount : errorCount
-  //     vscode.window.setStatusBarMessage(totalErrors ? `${message} Errors: ${totalErrors}` : message);
-
-  //     diagnosticCollection.clear();
-  //     let schematronDiagnostics = [];
-
-  //     console.log(errors)
-  //     if (errors){
-  //       for (const err of errors) {
-  //         const xpath = convertCustomXPath(err.location);
-  //         const [startLine, startColumn, endLine, endColumn] = await processXML(fileText, xpath);
-
-  //         const errorRange = new vscode.Range(startLine, startColumn, endLine, endColumn);
-  //         schematronDiagnostics.push(new vscode.Diagnostic(errorRange, err.text));
-  //       }
-  //     }
-
-  //     const schemaInfo = locateSchema();
-  //     if (schemaInfo) {
-  //       const {xmlURI} = schemaInfo;
-  //       diagnosticCollection.set(xmlURI, diagnostics.concat(schematronDiagnostics));
-  //     }
-  //   });
   }
 
   const schemaInfo = locateSchema();
@@ -538,20 +497,15 @@ function doValidation(): void {
       await parse(isNewSchema, schema, fileText, _xmlURI).then(({errorType, errorCount, diagnostics}) => {
         switch (errorType) {
           case ERR_VALID:
-            console.log("XML is not valid.");
-            // vscode.window.setStatusBarMessage('XML is not valid; checking Schematron');
               doSchematronValidation("XML is not valid", errorCount, diagnostics);
             break;
           case ERR_WELLFORM:
             vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
             break;
           case ERR_SCHEMA:
-            // vscode.window.setStatusBarMessage('$(gear~spin) RNG schema is incorrect; checking Schematron');
             doSchematronValidation("RNG schema is incorrect.", errorCount, diagnostics);
-            console.log("RNG schema is incorrect.");
             break;
           default:
-            // vscode.window.setStatusBarMessage('$(gear~spin) XML is valid; checking Schematron');
             doSchematronValidation("XML is valid.", errorCount, diagnostics);
         }
         resolve();
@@ -688,3 +642,6 @@ export function activate(context: vscode.ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() {}
 	
+
+
+// node-xsl-schematron VERSION ^1.0.2
