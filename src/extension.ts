@@ -4,13 +4,14 @@ import 'cross-fetch/polyfill';
 import * as url from 'url';
 import * as path from 'path';
 import {Grammar, convertRNGToPattern, DefaultNameResolver, Name} from 'salve-annos';
-import fileUrl from "file-url";
-import { SaxesParser, SaxesTag, SaxesAttributeNS } from "saxes";
+import { SaxesParser, SaxesTag, SaxesAttributeNS } from 'saxes';
+import Schematron from 'node-xsl-schematron';
 
 const ERR_VALID = 'ERR_VALID';
 const ERR_WELLFORM = 'ERR_WELLFORM';
 const ERR_SCHEMA = 'ERR_SCHEMA';
 const NO_ERR = 'NO_ERR';
+
 
 // XML Name regex (minus : and [#x10000-#xEFFFF] range)
 const nameStartChar = new RegExp(/_|[A-Z]|[a-z]|[\u00C0-\u00D6]|[\u00D8-\u00F6]|[\u00F8-\u02FF]|[\u0370-\u037D]|[\u037F-\u1FFF]|[\u200C-\u200D]|[\u2070-\u218F]|[\u2C00-\u2FEF]|[\u3001-\uD7FF]|[\uF900-\uFDCF]|[\uFDF0-\uFFFD]/);
@@ -28,6 +29,11 @@ export interface GrammarStore {
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 const grammarStore: GrammarStore = {};
+const sch = new Schematron();
+let validations: {
+  parsePromise: Promise<void>,
+  controller: AbortController
+}[] = [];
 
 
 type TagInfo = {
@@ -74,11 +80,11 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
     // Determine whether it's a path.
     if (path.parse(schemaURL).root) {
       // This is a local absolute path
-      schema = fileUrl(schemaURL, {resolve: false});
-    } else if (!url.parse(schemaURL).protocol) {
+      schema = url.pathToFileURL(schemaURL).toString();
+    } else if (!(new URL(schemaURL)).protocol) {
       // This is NOT a full URL, so treat this as a relative path
       const path = activeEditor.document.uri.path.split('/').slice(0, -1).join('/');
-      schema = fileUrl(path + '/' + schemaURL, {resolve: false});
+      schema = url.pathToFileURL(path + '/' + schemaURL).toString();
     }
     return {schema, fileText, xmlURI};
   } else {
@@ -92,6 +98,8 @@ export async function grammarFromSource(rngSource: string): Promise<Grammar | vo
   const schemaURL = new URL(rngSource);
   try {
     const s = await convertRNGToPattern(schemaURL);
+    // s.schemaText --> use this for schematron validation
+    await sch.setRNG(s.schemaText);
     return s.pattern;
   } catch(err) {
     vscode.window.showInformationMessage('Could not parse schema.');
@@ -123,13 +131,14 @@ async function parseWithoutSchema(xmlSource: string, xmlURI: string): Promise<St
   return error;
 }
 
-async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string, xmlURI: string): Promise<String> {
+async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string, xmlURI: string): Promise<{errorType: string, errorCount: number, diagnostics: vscode.Diagnostic[]}> {
   // Parsing function adapted from 
   // https://github.com/mangalam-research/salve/blob/0fd149e44bc422952d3b095bfa2cdd8bf76dd15c/lib/salve/parse.ts
   // Mozilla Public License 2.0
 
   const parser = new SaxesParser({ xmlns: true, position: true });
-  let tree: void | undefined | Grammar = undefined;
+  let tree: void | Grammar | null = null;
+  let errorCount = 0;
 
   // Only get grammar from source if necessary.
   if (!isNewSchema) {
@@ -141,7 +150,12 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   if (tree) {
     grammarStore[xmlURI].grammar = tree;
   } else {
-    return ERR_SCHEMA;
+    errorCount++;
+    return {
+      errorType: ERR_SCHEMA,  
+      errorCount: errorCount, 
+      diagnostics: []
+    };
   }
 
 	const nameResolver = new DefaultNameResolver();
@@ -157,21 +171,43 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
 		const ret = walker.fireEvent(name, args);
     if (ret instanceof Array) {
       error = ERR_VALID;
-			for (const err of ret) {
-        let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
+      errorCount += ret.length;
+
+      for (const err of ret) {
+        const lineNumber = parser.line - 1; // Convert to 0-based line
+        const errorColumn = parser.column;
+    
+        let startColumn = 0;
+        const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === xmlURI.toString());
+        if (document) {
+            const lineText = document.lineAt(lineNumber).text;
+            let errorCol0 = errorColumn - 1; // Convert to 0-based
+            errorCol0 = Math.min(errorCol0, lineText.length - 1); // Ensure within bounds
+    
+            // Find the start of the tag by searching for '<' before the error column
+            for (let i = errorCol0; i >= 0; i--) {
+                if (lineText[i] === '<') {
+                    startColumn = i;
+                    break;
+                }
+            }
+        }
+    
+        // Create range from the start of the tag to the error column
+        let range = new vscode.Range(lineNumber, startColumn, lineNumber, errorColumn);
         let diagnostics = diagnosticMap.get(xmlURI);
         if (!diagnostics) { diagnostics = []; }
+    
         const names = err.getNames();
-        // TODO: Temporarily setting this to any
-        const namesMsg = names.map((n: any) => {
-          const name = n.toJSON();
-          let ns = name.ns ? `(${name.ns})` : '';
-          return `"${name.name}" ${ns}`;
+        const namesMsg = names.map((n) => {
+            const name = n.toJSON();
+            let ns = name.ns ? `(${name.ns})` : '';
+            return `"${name.name}" ${ns}`;
         }).join(' ');
-        diagnostics.push(new vscode.Diagnostic(range, 
-          `${err.msg} — ${namesMsg}`));
+    
+        diagnostics.push(new vscode.Diagnostic(range, `${err.msg} — ${namesMsg}`));
         diagnosticMap.set(xmlURI, diagnostics);
-      }
+    }
     }
   }
 
@@ -231,6 +267,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
       flushTextBuf();
       const tagInfo = tagStack.pop();
       if (tagInfo === undefined) {
+        errorCount++;
         throw new Error("stack underflow");
       }
       fireEvent("endTag", [tagInfo.uri, tagInfo.local]);
@@ -265,6 +302,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
           parser.ENTITIES[name] = value;
         }
         else {
+          errorCount++;
           throw new Error(`unexpected construct in DOCTYPE: ${doctype}`);
         }
       }
@@ -274,6 +312,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
       const result = walker.end();
       if (result !== false) {
         error = ERR_WELLFORM;
+        errorCount+=result.length;
         for (const err of result) {
           console.log(`on end`);
           console.log(err.toString());
@@ -283,6 +322,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   
     parser.write(xmlSource).close();
   } catch(err) {
+    errorCount++;
     const e = err as Error
     error = ERR_WELLFORM;
     let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
@@ -297,11 +337,152 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
     diagnosticCollection.set(vscode.Uri.parse(file), diags);
   });
 
-  return error;
+  return {
+    errorType: error,
+    errorCount: errorCount,
+    diagnostics: diagnosticMap.get(xmlURI) || [],
+  };
 }
 
-function doValidation(): void {  
+//xpath given by schematron has more data than needed
+//converts that custom xpath into its simpler version
+// /Q{...}tagName[index]/.../Q{...}tagName[index] ---> tagName[index]/.../tagName[index]
+function convertCustomXPath(customXPath: string): string {
+  const xPathComponents = customXPath.split('/Q').filter(Boolean);
+
+  const prefixedComponents = xPathComponents.map(component => {
+      const match = component.match(/^{([^}]+)}(.*)$/);
+      if (match) {
+        const elementName = match[2];
+        return `${elementName}`;
+      }
+      return component;
+  });
+
+  return prefixedComponents.join('/');
+}
+
+
+//helper function for processXML to see if the two xpaths are a match
+function matchesXPath(currentPath: string[], xpath: string[]): boolean {
+  if (currentPath.length !== xpath.length) return false;
+  for (let i = 0; i < xpath.length; i++) {
+      if (xpath[i] !== currentPath[i] && xpath[i] !== '*') {
+          return false;
+      }
+  }
+  return true;
+}
+
+
+// gives the xpath expression, finds the line number using saxes parser
+async function processXML(xml: string, xpathExpression: string): Promise<[number, number, number, number]> {
+  const parser = new SaxesParser({ position: true });
+  const xpath = xpathExpression.split('/').filter(Boolean);
+  const currentPath: string[] = [];
+  let lastTag: string | undefined;
+
+  // Track start/end positions of the opening tag
+  let startLine = -1;
+  let startColumn = -1;
+  let endLine = -1;
+  let endColumn = -1;
+  const tagStartStack: Array<{ line: number, column: number }> = [];
+
+  parser.on('opentagstart', () => {
+    // Record the position where the opening tag starts
+    tagStartStack.push({
+      line: parser.line - 1, // Convert to 0-based
+      column: parser.column - 1,
+    });
+  });
+
+  parser.on('opentag', (node: SaxesTag) => {
+    // Get the start position from the stack
+    const tagStart = tagStartStack.pop();
+    if (!tagStart) return;
+
+    // Update currentPath
+    const match = lastTag?.match(/^(.*)\[(\d+)\]$/);
+    if (match && match[1] === node.name) {
+      currentPath.push(`${node.name}[${Number(match[2]) + 1}]`);
+    } else {
+      currentPath.push(`${node.name}[1]`);
+    }
+
+    // Check if this tag matches the XPath
+    if (matchesXPath(currentPath, xpath)) {
+      // get start/end positions of the opening tag
+      startLine = tagStart.line;
+      startColumn = tagStart.column;
+      endLine = parser.line - 1; // Position after ">"
+      endColumn = parser.column - 1;
+    }
+  });
+
+  parser.on('closetag', () => {
+    lastTag = currentPath.pop();
+  });
+
+  parser.on('error', (error: Error) => {
+    console.error('Error:', error);
+  });
+
+  parser.write(xml).close();
+  return [startLine, startColumn, endLine, endColumn];
+}
+
+function doValidation(): void {
+
+  console.log("validating...")
+  if (validations.length > 0) {
+    console.log(validations)
+    console.log("aborting latest validation process")
+    for (const [index, v] of validations.entries()) {
+      v.controller.abort();
+      validations.splice(index, 1);
+    }
+  }
+
+  const doSchematronValidation = (message: string, errorCount: number, diagnostics: vscode.Diagnostic[]): void => {
+    console.log('Running schematron')
+    vscode.window.setStatusBarMessage(`$(gear~spin) ${message}; checking Schematron`)
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+      return;
+    }
+    const fileText = activeEditor.document.getText(); 
+
+    // Manual timeout to ensure UI updates take place (50ms)
+    setTimeout(() => { 
+      sch.validate(fileText).then(async (errors: any) => {
+      console.log('Ran schematron')
+      const totalErrors = errors ?  errors.length + errorCount : errorCount
+      vscode.window.setStatusBarMessage(totalErrors ? `$(error) ${message} Errors: ${totalErrors}` : `$(check) ${message}`);
+
+      diagnosticCollection.clear();
+      let schematronDiagnostics = [];
+
+      if (errors){
+        for (const err of errors) {
+          const xpath = convertCustomXPath(err.location);
+          const [startLine, startColumn, endLine, endColumn] = await processXML(fileText, xpath);
+
+          const errorRange = new vscode.Range(startLine, startColumn, endLine, endColumn);
+          schematronDiagnostics.push(new vscode.Diagnostic(errorRange, err.text));
+        }
+      }
+
+      const schemaInfo = locateSchema();
+      if (schemaInfo) {
+        const {xmlURI} = schemaInfo;
+        diagnosticCollection.set(xmlURI, diagnostics.concat(schematronDiagnostics));
+      }
+    });},50)
+  }
+
   const schemaInfo = locateSchema();
+
   if (schemaInfo) {
     let isNewSchema = false;
     const {schema, fileText, xmlURI} = schemaInfo;
@@ -316,21 +497,39 @@ function doValidation(): void {
       grammarStore[_xmlURI].rngURI = schema;
       isNewSchema = true;
     }
-    parse(isNewSchema, schema, fileText, _xmlURI).then((err) => {
-      switch (err) {
-        case ERR_VALID:
-          vscode.window.setStatusBarMessage('$(error) XML is not valid.');
-          break;
-        case ERR_WELLFORM:
-          vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
-          break;
-        case ERR_SCHEMA:
-          vscode.window.setStatusBarMessage('$(error) RNG schema is incorrect.');
-          break;
-        default:
-          vscode.window.setStatusBarMessage('$(check) XML is valid.');
-      }
-    });
+
+    const controller = new AbortController();
+    const parsePromise = new Promise<void>(async (resolve, reject) => {
+      controller.signal.addEventListener("abort", () => {
+        console.log("aborting", controller.signal);
+        return reject("Cancelled");
+      })
+
+
+      await parse(isNewSchema, schema, fileText, _xmlURI).then(({errorType, errorCount, diagnostics}) => {
+        switch (errorType) {
+          case ERR_VALID:
+              doSchematronValidation("XML is not valid", errorCount, diagnostics);
+            break;
+          case ERR_WELLFORM:
+            vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
+            break;
+          case ERR_SCHEMA:
+            doSchematronValidation("RNG schema is incorrect.", errorCount, diagnostics);
+            break;
+          default:
+            doSchematronValidation("XML is valid.", errorCount, diagnostics);
+        }
+        resolve();
+      }).catch(() => reject());
+    })
+
+    validations.push({
+      parsePromise,
+      controller
+    })
+
+    
   } else {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
@@ -348,6 +547,7 @@ function doValidation(): void {
           vscode.window.setStatusBarMessage('$(check) XML is well formed.');
       }
     });
+
   }
 }
 
@@ -373,7 +573,6 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.languages.registerCompletionItemProvider(
       { scheme: 'file', language: validLang }, new SalveCompletionProvider(grammarStore), '<', ' ', '"')
   );
-
   // COMMANDS
   let validate = vscode.commands.registerCommand('sxml.validate', () => {
     doValidation();
@@ -462,3 +661,6 @@ export function activate(context: vscode.ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() {}
 	
+
+
+// node-xsl-schematron VERSION ^1.0.2
