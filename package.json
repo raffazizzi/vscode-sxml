@@ -3,9 +3,9 @@
 	"displayName": "Scholarly XML",
 	"publisher": "raffazizzi",
 	"description": "XML validator (RELAX NG only) and autocomplete with features typically needed by academic encoding projects.",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"engines": {
-		"vscode": "^1.69.0"
+		"vscode": "^1.98.0"
 	},
 	"icon": "images/sxml_logo.png",
 	"categories": [
@@ -115,10 +115,12 @@
 		"typescript": "^4.7.4",
 		"vscode-test": "^1.6.1",
 		"webpack": "^5.74.0",
-		"webpack-cli": "^4.10.0"
+		"webpack-cli": "^4.10.0",
+		"xslt3": "^2.7.0"
 	},
 	"dependencies": {
 		"file-url": "^4.0.0",
-		"salve-annos": "^1.2.1"
+		"node-xsl-schematron": "^1.0.2",
+		"salve-annos": "^1.2.4"
 	}
 }
