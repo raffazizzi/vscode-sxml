@@ -3,7 +3,7 @@ import SalveCompletionProvider from './completion';
 import 'cross-fetch/polyfill';
 import * as url from 'url';
 import * as path from 'path';
-import {Grammar, convertRNGToPattern, DefaultNameResolver, Name} from 'salve-annos';
+import { Grammar, convertRNGToPattern, DefaultNameResolver } from 'salve-annos';
 import { SaxesParser, SaxesTag, SaxesAttributeNS } from 'saxes';
 import Schematron from 'node-xsl-schematron';
 
@@ -76,15 +76,19 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
   if (schemaURL) {
     // Start by assuming it's a full URL.
     let schema = schemaURL;
-
-    // Determine whether it's a path.
-    if (path.parse(schemaURL).root) {
-      // This is a local absolute path
-      schema = url.pathToFileURL(schemaURL).toString();
-    } else if (!(new URL(schemaURL)).protocol) {
-      // This is NOT a full URL, so treat this as a relative path
-      const path = activeEditor.document.uri.path.split('/').slice(0, -1).join('/');
-      schema = url.pathToFileURL(path + '/' + schemaURL).toString();
+    try {
+      new URL(schemaURL)
+    } catch (error) {
+      const schemaPath = path.parse(schemaURL);
+      // Determine whether it's a local path.
+      if (schemaPath.root !== "") {
+        schema = url.pathToFileURL(schemaURL).toString();
+      } else {
+        console.log("Schema URL is not a full URL, treating as relative path");
+        // This is NOT a full URL, so treat this as a relative path
+        const basePath = activeEditor.document.uri.path.split('/').slice(0, -1).join('/');
+        schema = url.pathToFileURL(basePath + '/' + schemaURL).toString();
+      }
     }
     return {schema, fileText, xmlURI};
   } else {
@@ -658,9 +662,5 @@ export function activate(context: vscode.ExtensionContext) {
   }
 }
 
-// this method is called when your extension is deactivated
+// this method is called when the extension is deactivated
 export function deactivate() {}
-	
-
-
-// node-xsl-schematron VERSION ^1.0.2
