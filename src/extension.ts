@@ -42,6 +42,25 @@ type TagInfo = {
   hasContext: boolean;
 };
 
+export function normalizeSchemaUrl(schemaURL: string): string {
+  try {
+    new URL(schemaURL);
+    return schemaURL;
+  } catch (error) {
+    const schemaPath = path.parse(schemaURL);
+    const activeEditor = vscode.window.activeTextEditor;
+    // Determine whether it's a local path.
+    if (schemaPath.root !== "") {
+      return url.pathToFileURL(schemaURL).toString();
+    } else {
+      console.log("Schema URL is not a full URL, treating as relative path");
+      // This is NOT a full URL, so treat this as a relative path
+      const basePath = activeEditor?.document.uri.path.split('/').slice(0, -1).join('/');
+      return url.pathToFileURL(basePath + '/' + schemaURL).toString();
+    }
+  }
+}
+
 export function locateSchema(): {schema: string, fileText: string, xmlURI: vscode.Uri} | void {
   const activeEditor = vscode.window.activeTextEditor;
   if (!activeEditor) {
@@ -75,21 +94,7 @@ export function locateSchema(): {schema: string, fileText: string, xmlURI: vscod
   }
   if (schemaURL) {
     // Start by assuming it's a full URL.
-    let schema = schemaURL;
-    try {
-      new URL(schemaURL)
-    } catch (error) {
-      const schemaPath = path.parse(schemaURL);
-      // Determine whether it's a local path.
-      if (schemaPath.root !== "") {
-        schema = url.pathToFileURL(schemaURL).toString();
-      } else {
-        console.log("Schema URL is not a full URL, treating as relative path");
-        // This is NOT a full URL, so treat this as a relative path
-        const basePath = activeEditor.document.uri.path.split('/').slice(0, -1).join('/');
-        schema = url.pathToFileURL(basePath + '/' + schemaURL).toString();
-      }
-    }
+    let schema = normalizeSchemaUrl(schemaURL);
     return {schema, fileText, xmlURI};
   } else {
     console.log("No schema URL specified in either settings or the file")
