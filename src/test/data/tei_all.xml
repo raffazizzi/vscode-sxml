@@ -3,6 +3,10 @@
   href="tei_all.rng"
   schematypens="http://relaxng.org/ns/structure/1.0"
   type="application/xml"?>
+<?xml-model
+  href="tei_all.rng"
+  schematypens="http://purl.oclc.org/dsdl/schematron"
+  type="application/xml"?>
 <TEI xmlns="http://www.tei-c.org/ns/1.0">
         <teiHeader>
           <fileDesc>
@@ -19,7 +23,7 @@
                 <monogr>
                   <author>HD CAICYT LAB</author>
                   <title>Acarete du Biscay: Relación de un viaje al Río de la Plata...</title>
-                  <imprint><date>1696</date></imprint>  
+                  <imprint><date notBefore="1696" notAfter="1200">1696</date></imprint>  
                 </monogr>
               </biblStruct>
             </sourceDesc>

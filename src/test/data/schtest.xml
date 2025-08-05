@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="schtest.sch" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<teiHeader xmlns="http://www.tei-c.org/ns/1.0">
+    <fileDesc>
+        <titleStmt>
+            <title>A Title</title>
+        </titleStmt>
+        <publicationStmt>
+            <p part="I" prev="#p5" next="#p7">Publication Information</p>
+        </publicationStmt>
+        <sourceDesc>
+            <p part="I" prev="#p5" next="#p7">Information about the source</p>
+        </sourceDesc>
+    </fileDesc>
+</teiHeader>
+
