@@ -774,7 +774,6 @@ async function doValidation(): Promise<void> {
           for (const err of errors) {
             const errLoc = await locateSchErrInXML(fileText, err.location);
             if (errLoc) {
-              console.log(errLoc)
               const [startLine, startColumn, endLine, endColumn] = errLoc;
               const errorRange = new vscode.Range(startLine, startColumn, endLine, endColumn);
               schematronDiagnostics.push(new vscode.Diagnostic(errorRange, err.text));

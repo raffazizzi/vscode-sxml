@@ -50,14 +50,6 @@ Select some text and wrap it in a tag using Ctrl+e or by bringing up the Command
 
 ![Demo showing wrapping text with element](https://github.com/raffazizzi/vscode-sxml/raw/main/images/rm-wrap.gif)
 
-## Recommended extensions
-
-For a better XML editing experience we recommend also installing the following extensions:
-
-* [Auto Close Tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-close-tag)
-* [Auto Rename Tag](https://marketplace.visualstudio.com/items?itemName=formulahendry.auto-rename-tag)
-* [Close HTML/XML tag](https://marketplace.visualstudio.com/items?itemName=Compulim.compulim-vscode-closetag)
-
 ## Change log
 
 You can read the change log [here](https://github.com/raffazizzi/vscode-sxml/blob/master/CHANGELOG.md).
