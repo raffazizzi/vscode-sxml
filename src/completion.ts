@@ -1,7 +1,7 @@
 import 'cross-fetch/polyfill';
 import * as vscode from 'vscode';
 import {DefaultNameResolver, EnterStartTagEvent} from 'salve-annos';
-import { StoredGrammar, GrammarStore, grammarFromSource, locateSchema } from './extension';
+import { StoredGrammar, GrammarStore, grammarFromSource, locateSchemas } from './extension';
 import { SaxesParser, SaxesTag, SaxesAttributeNS, SaxesStartTagNS } from "saxes";
 import { Ref, Grammar } from 'salve-annos/lib/salve/patterns';
 
@@ -51,8 +51,8 @@ class SalveCompletionProvider implements vscode.CompletionItemProvider {
         }
       }
       
-      const schemaData = locateSchema();
-      if (schemaData) {
+      const schemaData = locateSchemas({schematron: false});
+      if (schemaData && schemaData.schema) {
         const {schema, fileText, xmlURI} = schemaData;
         const _xmlURI = xmlURI.toString();
         let storedGrammar: StoredGrammar;

@@ -66,83 +66,73 @@ export function normalizeSchemaUrl(schemaURL: string): string {
   }
 }
 
-async function locateSchema(): Promise<void | { schema?: string; schematron?: string; fileText: string; xmlURI: vscode.Uri; }> {
+export interface SchemaData {
+  schema?: string; fileText: string; xmlURI: vscode.Uri; 
+}
+
+// Overload signatures to allow both sync and async use
+export function locateSchemas(opts?: { schematron?: false }): void | SchemaData;
+export function locateSchemas(opts: { schematron: true }): Promise<void | SchemaData & {schematron?: string}>;
+
+// 2. Single implementation
+export function locateSchemas(opts?: { schematron?: boolean }): any {
   const activeEditor = vscode.window.activeTextEditor;
-  if (!activeEditor) {
-    return;
-  }
-  
+  if (!activeEditor) return opts?.schematron ? Promise.resolve() : undefined;
+
   const fileText = activeEditor.document.getText();
   const xmlURI = activeEditor.document.uri;
+  const extKey = activeEditor.document.fileName.split('.').pop()!;
+  const defaultSchemas = vscode.workspace.getConfiguration("sxml").get("defaultSchemas") as { [key: string]: string };
 
-  let extKey = activeEditor.document.fileName.split('.').pop() as keyof typeof defaultSchemas;
+  let schemaURL = defaultSchemas?.[extKey];
+  let schematronURL: string | undefined;
 
-  const defaultSchemas = vscode.workspace.getConfiguration("sxml").get("defaultSchemas") as {[key:string]:string};
+  const schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/s)
+    ?? fileText.match(/<\?xml-model.+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".+?href="([^"]+)"/s);
 
-  // Set schemaURL to value from settings if possible
-  let schemaURL;
-  let schematronURL;
-  if (defaultSchemas.hasOwnProperty(extKey)){
-    console.log("File extension", extKey,"is in settings, with RNG URL: ", defaultSchemas[extKey]);
-    schemaURL = defaultSchemas[extKey];
-  }
+  const schematronURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/purl.oclc.org\/dsdl\/schematron"/s)
+    ?? fileText.match(/<\?xml-model.+?schematypens="http:\/\/purl.oclc.org\/dsdl\/schematron".+?href="([^"]+)"/s);
 
-  // Locate RNG from active file
-  let schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/s);
-  // Retry with schematypens first
-  schemaURLMatch = schemaURLMatch ? schemaURLMatch : fileText.match(/<\?xml-model.+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".+?href="([^"]+)"/s);
+  if (schemaURLMatch) schemaURL = schemaURLMatch[1];
+  if (schematronURLMatch) schematronURL = schematronURLMatch[1];
 
-  // Locate Schematron from active file
-  let schematronURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/purl.oclc.org\/dsdl\/schematron"/s);
-  // Retry with schematypens first
-  schematronURLMatch = schematronURLMatch ? schematronURLMatch : fileText.match(/<\?xml-model.+?schematypens="http:\/\/purl.oclc.org\/dsdl\/schematron".+?href="([^"]+)"/s);
-
-  // If RNG set inside document, use that.  Otherwise use rng provided by settings.  If neither exist, simply return.
-  if (schemaURLMatch) {
-    // Get schema URL from document if possible, overriding settings if needed
-    schemaURL = schemaURLMatch[1];
-    console.log("Now schemaURL is: ", schemaURL)
-  }
-  if (schematronURLMatch) {
-    schematronURL = schematronURLMatch[1];
-    console.log("Now schematronURL is: ", schematronURL)
-  }
-
-  if (!schemaURL && !schematronURL) {
-    console.log("No schema URL specified in either settings or the file")
-    return;
-  }
+  if (!schemaURL && !schematronURL) return opts?.schematron ? Promise.resolve() : undefined;
 
   const schema = schemaURL && normalizeSchemaUrl(schemaURL);
   let schematron = schematronURL && normalizeSchemaUrl(schematronURL);
-  
-  if (schematron && schematron === schema) {
-    schematron = EMBEDDED_SCH;
-    console.log("Schematron is the same as RNG schema, using embedded schematron");
-  } else if (schematron) {
-    // retrieve and set schematron
-    try {
-      let schematronData: string;
-      if (schematron.startsWith('http')) {
-        // If the href is a URL, we fetch the content.
-        const response = await fetch(schematron);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${schematron}: ${response.statusText}`);
-        }
-        schematronData = await response.text();
-      } else {
-        const doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(schematron));
-        schematronData = doc.getText();          
-      }
-      sch.setSchematron(schematronData);
-    } catch (err) {
-      console.log(err)
-      vscode.window.showInformationMessage('Could not fetch schematron from URL.');
-    }
+
+  const result = { schema, fileText, xmlURI } as any;
+
+  if (!opts?.schematron) {
+    return result;
   }
 
-  return {schema, schematron, fileText, xmlURI};
+  // Async branch if schematron is requested
+  return (async () => {
+    if (schematron && schematron === schema) {
+      schematron = EMBEDDED_SCH;
+    } else if (schematron) {
+      try {
+        let schematronData: string;
+        if (schematron.startsWith('http')) {
+          const response = await fetch(schematron);
+          if (!response.ok) throw new Error(`Failed to fetch ${schematron}: ${response.statusText}`);
+          schematronData = await response.text();
+        } else {
+          const doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(schematron));
+          schematronData = doc.getText();
+        }
+        sch.setSchematron(schematronData);
+      } catch (err) {
+        console.log(err);
+        vscode.window.showInformationMessage('Could not fetch schematron from URL.');
+      }
+    }
+
+    return { ...result, schematron };
+  })();
 }
+
 
 export async function grammarFromSource(rngSource: string, embeddedSch = false): Promise<Grammar | void> {
 	// Treat it as a Relax NG schema.
@@ -284,7 +274,8 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   // https://github.com/mangalam-research/salve/blob/0fd149e44bc422952d3b095bfa2cdd8bf76dd15c/lib/salve/parse.ts
   // Mozilla Public License 2.0
 
-  const resolvedXmlSource = await resolveXIncludes(xmlSource);
+  // Shouldn't attempt to resolve XInclude if the file isn't well formed.
+  const resolvedXmlSource = xmlSource // await resolveXIncludes(xmlSource);
   const parser = new SaxesParser({ xmlns: true, position: true });
   let tree: void | Grammar | null = null;
   let errorCount = 0;
@@ -294,7 +285,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
     tree = grammarStore[xmlURI].grammar;
   }
   if (!tree) {
-    tree = await grammarFromSource(rngSource, embeddedSch);
+    tree = await grammarFromSource(rngSource, false); // turning off embeddedSch to try and restore completions
   }
   if (tree) {
     grammarStore[xmlURI].grammar = tree;
@@ -786,7 +777,7 @@ async function doValidation(): Promise<void> {
     },50)
   }
 
-  const schemaInfo = await locateSchema();
+  const schemaInfo = await locateSchemas({schematron: true});
 
   // check if schemaInfo is defined and has a schema
   if (schemaInfo && schemaInfo.schema) {
@@ -815,25 +806,27 @@ async function doValidation(): Promise<void> {
         await parse(isNewSchema, schema, fileText, _xmlURI, schematron === EMBEDDED_SCH).then(({errorType, errorCount, diagnostics}) => {
           switch (errorType) {
             case ERR_VALID:
-                vscode.window.setStatusBarMessage('$(error) XML is not valid.');
-                doSchematronValidation("XML is not valid", xmlURI, errorCount, diagnostics);
+                schematron
+                  ? doSchematronValidation("XML is not valid", xmlURI, errorCount, diagnostics)
+                  : vscode.window.setStatusBarMessage('$(error) XML is not valid.');
               break;
             case ERR_WELLFORM:
               vscode.window.setStatusBarMessage('$(error) XML is not well formed.');
               break;
             case ERR_SCHEMA:
-              vscode.window.setStatusBarMessage('$(error) RNG schema is incorrect.');
-              doSchematronValidation("RNG schema is incorrect.", xmlURI, errorCount, diagnostics);
+              schematron
+                ? doSchematronValidation("RNG schema is incorrect.", xmlURI, errorCount, diagnostics)
+                : vscode.window.setStatusBarMessage('$(error) RNG schema is incorrect.');
               break;
             default:
-              vscode.window.setStatusBarMessage('$(check) XML is valid.');
-              doSchematronValidation("XML is valid.", xmlURI, errorCount, diagnostics);
+              schematron
+                ? doSchematronValidation("XML is valid.", xmlURI, errorCount, diagnostics)
+                : vscode.window.setStatusBarMessage('$(check) XML is valid.');
           }
           resolve();
-        }).catch(() => reject());
+        }).catch((err) => reject(err));
       }
     })
-
     validations.push({
       parsePromise,
       controller
