@@ -150,12 +150,13 @@ export async function grammarFromSource(rngSource: string, embeddedSch = false):
 }
 
 async function parseWithoutSchema(xmlSource: string, xmlURI: string): Promise<String> {
+  const resolvedXmlSource = await resolveXIncludes(xmlSource);
   diagnosticCollection.clear();
   let error = NO_ERR;
   let diagnosticMap: Map<string, vscode.Diagnostic[]> = new Map();
   const parser = new SaxesParser({ xmlns: true, position: true });
   try {
-    parser.write(xmlSource).close();
+    parser.write(resolvedXmlSource).close();
   } catch(err: unknown) {
     const e = err as Error
     error = ERR_WELLFORM;
@@ -174,15 +175,17 @@ async function parseWithoutSchema(xmlSource: string, xmlURI: string): Promise<St
   return error;
 }
 
-async function resolveXIncludes(xmlSource: string): Promise<string> {
+async function resolveXIncludes(xmlSource: string, depth = 0): Promise<string> {
   const resolverParser = new SaxesParser({ xmlns: true, position: true });
   const outputParts: (string | Promise<string>)[] = [];
+  
   let lastPos = 0;
-  let includeDepth = 0;
+  let foundXi = false;
 
   resolverParser.on('opentag', (node: SaxesTag) => {
     if (node.uri === XINCLUDE_NS && node.local === XINCLUDE_LOCAL) {
-      if (includeDepth === 0) {
+      foundXi = true;
+      if (depth < 50) { // TODO: this should be configurable.
         // Find the start of the tag by searching backwards from the parser's current position.
         // The parser's position is at the character after the '>' of the opening tag.
         const tagStartPosition = xmlSource.lastIndexOf('<', resolverParser.position - 1);
@@ -196,7 +199,6 @@ async function resolveXIncludes(xmlSource: string): Promise<string> {
         // Push the XML content that came before this xi:include tag.
         outputParts.push(xmlSource.substring(lastPos, tagStartPosition));
 
-
         const hrefAttr = node.attributes.href as SaxesAttributeNS | undefined;
         if (hrefAttr) {
           const href = hrefAttr.value;
@@ -205,6 +207,10 @@ async function resolveXIncludes(xmlSource: string): Promise<string> {
           const col = resolverParser.column;
           const makePI = (resolvedNestedXml: string) => {
             // Wrap the resolved content in our source map PIs
+
+            // But only if it's in the top-level document.
+            if (depth > 0) return resolvedNestedXml;
+
             const piEnter = `<?xml-xi-map-enter uri="${hrefURL}" parent-line="${line}" parent-col="${col}"?>`;
             const piLeave = `<?xml-xi-map-leave?>`;
             return `${piEnter}${resolvedNestedXml}${piLeave}`;
@@ -222,16 +228,16 @@ async function resolveXIncludes(xmlSource: string): Promise<string> {
                 }
                 return response.text();
               })
-              .then(doc => {
-                const text = doc.replace(/^\s*<\?xml.*?\?>\s*/, '');
-                return resolveXIncludes(text);
+              .then(async (doc) => {
+                const text = doc.replace(/^\s*<\?xml.*?\?>\s*/, '');                
+                return await resolveXIncludes(text, depth + 1);
               })
               .then(makePI).catch(handleErr)
           } else {
             includedContentPromise = (vscode.workspace.openTextDocument(vscode.Uri.parse(hrefURL))
-              .then(doc => {
+              .then(async (doc) => {
                 const text = doc.getText().replace(/^\s*<\?xml.*?\?>\s*/, '');
-                return resolveXIncludes(text);
+                return await resolveXIncludes(text, depth + 1);
               })
               .then(makePI) as Promise<string>).catch(handleErr);
           }
@@ -243,23 +249,32 @@ async function resolveXIncludes(xmlSource: string): Promise<string> {
         if (node.isSelfClosing) {
           lastPos = resolverParser.position;
         }
+      } else {
+        // Too deep, just skip the include and continue.
+        vscode.window.showInformationMessage("Maximum XInclude depth reached, skipping further includes.");
       }
-      includeDepth++;
     }
   });
 
   resolverParser.on('closetag', (node: SaxesTag) => {
     if (node.uri === XINCLUDE_NS && node.local === XINCLUDE_LOCAL) {
-      includeDepth--;
-      if (includeDepth === 0) {
+      if (depth === 0) {
         // This handles the case for a non-self-closing <xi:include>...</xi:include>
         lastPos = resolverParser.position;
       }
     }
   });
 
-  // Run the parser over the source XML.
-  resolverParser.write(xmlSource).close();
+  try {
+    // Run the parser over the source XML.
+    resolverParser.write(xmlSource).close();
+  } catch (err) {
+    // if it is deeper, stop including.
+    // if the document with xi:includes is not well-formed, we cannot resolve includes.
+    if (depth > 0 || !foundXi) {
+      return xmlSource;
+    }
+  }
 
   // Append any remaining text after the last xi:include.
   outputParts.push(xmlSource.substring(lastPos));
@@ -275,7 +290,7 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
   // Mozilla Public License 2.0
 
   // Shouldn't attempt to resolve XInclude if the file isn't well formed.
-  const resolvedXmlSource = xmlSource // await resolveXIncludes(xmlSource);
+  const resolvedXmlSource = await resolveXIncludes(xmlSource);
   const parser = new SaxesParser({ xmlns: true, position: true });
   let tree: void | Grammar | null = null;
   let errorCount = 0;
@@ -529,7 +544,47 @@ async function parse(isNewSchema: boolean, rngSource: string, xmlSource: string,
     errorCount++;
     const e = err as Error
     error = ERR_WELLFORM;
-    let range = new vscode.Range(parser.line-1, 0, parser.line-1, parser.column);
+    let lineNumber = parser.line - 1; // Convert to 0-based line
+    let errorColumn = parser.column;
+    let startColumn = 0;
+    const currentInclude = includeLocationStack.length > 0 ? includeLocationStack[includeLocationStack.length - 1] : null;
+    if (currentInclude) {
+      // Error is inside an included file. Point to the include tag in the parent document.
+      lineNumber = currentInclude.line - 1; // Saxes line is 1-based.
+      
+      const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === xmlURI);
+      if (document) {
+        const lineText = document.lineAt(lineNumber).text;
+        // Try to find the whole <xi:include ... /> tag to highlight it.
+        const tagMatch = lineText.match(/<xi:include\s+[^>]*>/);
+        if (tagMatch && tagMatch.index !== undefined) {
+            startColumn = tagMatch.index;
+            errorColumn = startColumn + tagMatch[0].length;
+        } else {
+            // Fallback to the column from the parser if regex fails.
+            startColumn = currentInclude.column > 0 ? currentInclude.column - 1 : 0;
+            errorColumn = startColumn + 1;
+        }
+      }
+    } else {
+      // Error is in the main file. Adjust line number based on previous includes.
+        lineNumber -= lineAdjustment;
+      const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === xmlURI.toString());
+      if (document) {
+          const lineText = document.lineAt(lineNumber).text;
+          let errorCol0 = errorColumn - 1; // Convert to 0-based
+          errorCol0 = Math.min(errorCol0, lineText.length - 1); // Ensure within bounds
+  
+          // Find the start of the tag by searching for '<' before the error column
+          for (let i = errorCol0; i >= 0; i--) {
+              if (lineText[i] === '<') {
+                  startColumn = i;
+                  break;
+              }
+          }
+      }
+    }
+    let range = new vscode.Range(lineNumber, startColumn, lineNumber, errorColumn);
     let diagnostics = diagnosticMap.get(xmlURI);
     if (!diagnostics) { diagnostics = []; }
     diagnostics.push(new vscode.Diagnostic(range, e.message));

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<card>
-    <poop/>
+<card xmlns:xi="http://www.w3.org/2001/XInclude">
+    <wrong/>
     <name>Nomen Falsum</name>
     <email>nf@example.net</email>
-    <poo/>
+    <alsoWrong/>
+    <xi:include href="xi2.xml"/>
 </card>
