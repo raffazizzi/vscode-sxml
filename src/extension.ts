@@ -1,6 +1,6 @@
 import { suggestAttValue, translateCursor, wrapWithEl } from "./commands";
 import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
-import { XMLDocumentManager } from "./core/xmlDocumentManager";
+import { XMLDocumentManager } from "./core/XMLDocumentManager";
 import { validateDocument, validateWithSchematron } from "./services/validate";
 import { commands, languages, window, workspace } from "vscode";
 

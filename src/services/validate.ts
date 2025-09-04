@@ -4,7 +4,7 @@ import { Diagnostic, Range, window, workspace } from "vscode";
 import { Worker } from 'worker_threads';
 import { join } from 'path';
 
-import type { XMLDocumentManager } from "../core/xmlDocumentManager";
+import type { XMLDocumentManager } from "../core/XMLDocumentManager";
 import type { ValidationResult, TagInfo, XIncludeLocation, NodePath } from "../types";
 import type { DefaultNameResolver, Grammar } from "salve-annos";
 import type { Base } from "salve-annos/lib/salve/name_patterns";

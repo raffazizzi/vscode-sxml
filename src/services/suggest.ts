@@ -2,7 +2,7 @@ import { CompletionRequest } from "../constants";
 import { truncate } from "../utils";
 import { CompletionItem } from "vscode";
 
-import type { XMLDocumentManager } from "../core/xmlDocumentManager";
+import type { XMLDocumentManager } from "../core/XMLDocumentManager";
 import type { NSDef } from "../types";
 import type { EnterStartTagEvent } from "salve-annos";
 import type { Ref } from "salve-annos/lib/salve/patterns";
