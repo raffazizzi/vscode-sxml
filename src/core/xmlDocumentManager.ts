@@ -1,6 +1,5 @@
 import { locateSchema, locateSchematron } from "../services/locate";
 import { resolveXIncludes } from "../services/xinclude";
-import Schematron from "node-xsl-schematron";
 import { convertRNGToPattern, DefaultNameResolver } from "salve-annos";
 import { SaxesParser } from "saxes";
 import { window } from "vscode";
@@ -17,10 +16,6 @@ export class XMLDocumentManager {
   public uri?: Uri;
   public parser?: SaxesParser;
   public nameResolver?: DefaultNameResolver;
-
-  constructor(document: TextDocument) {
-    this.updateDocument(document);
-  }
 
   private async setFullDocumentText() {
     // resolve XIncludes (NB the function checks settings to decide whether to actually resolve or not).
@@ -69,7 +64,7 @@ export class XMLDocumentManager {
     return this.storedGrammar.grammar;
   }
 
-  public async getSchematron(): Promise<typeof Schematron | void> {
+  public async getSchematron(): Promise<StoredSchematron | void> {
     // Call this method at instantiation and on document change.
 
     if (!this.document) return;
@@ -87,14 +82,16 @@ export class XMLDocumentManager {
       } else {
         this.storedSchematron = {
           uri: schInfo.uri,
-          schematron: new Schematron()
         };
       }
-      // store new schematron
+      // store new schematron data
+      // NB schematron is handled through a worker so we only cache data.
       if (schInfo.embedded) {
-        this.storedSchematron.schematron.setRNG(this.storedGrammar.rawText);
+        this.storedSchematron.rawText = this.storedGrammar.rawText;
+        this.storedSchematron.embedded = true;
       } else {
-        this.storedSchematron.schematron.setSchematron(schInfo.rawText);
+        this.storedSchematron.rawText = schInfo.rawText;
+        this.storedSchematron.embedded = false;
       }
       return this.storedSchematron;
     } else {
@@ -107,7 +104,7 @@ export class XMLDocumentManager {
   public async updateDocument(document: TextDocument): Promise<void> {
     this.document = document;
     this.uri = document.uri;
-    
+
     this.parser = new SaxesParser({ xmlns: true, position: true });
     this.nameResolver = new DefaultNameResolver();
     

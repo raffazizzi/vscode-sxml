@@ -91,3 +91,11 @@ export function matchPath(path: NodePath[], steps: XPathStep[]): boolean {
     );
   });
 }
+
+export function makeStatusMsg(msg: string, icon: string, sch = false, tail?: string) {
+  const _tail = tail ? ` ${tail}` : "";
+  const fullMsg = `${msg}${_tail}`;
+  return sch
+    ? `$(gear~spin) ${fullMsg}; checking Schematron.`
+    : `$(${icon}) ${fullMsg}.`
+}

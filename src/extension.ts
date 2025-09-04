@@ -17,7 +17,7 @@ async function getManager(document: TextDocument): Promise<XMLDocumentManager> {
     const uri = document.uri.toString();
 
     if (!documentManagers.has(uri)) {
-      const newManager = new XMLDocumentManager(document)
+      const newManager = new XMLDocumentManager()
       documentManagers.set(uri, newManager);
     }
 
@@ -38,10 +38,7 @@ async function validate(document: TextDocument) {
   const uri = document.uri.toString();
 
   // If a validation is already running for this document, cancel it.
-  console.log(validationControllers)
   if (validationControllers.has(uri)) {
-    // TODO: I'm not sure this is running.
-    console.log('aborting, allegedly.')
     validationControllers.get(uri)?.abort();
   }
   const controller = new AbortController();
@@ -54,7 +51,7 @@ async function validate(document: TextDocument) {
     // perform validation
     const validationResult = await validateDocument(manager, controller.signal);
     const hasSch = workspace.getConfiguration("sxml").get("schematronSupport")
-      ? (await manager.getSchematron()).hasOwnProperty("uri")
+      ? (await manager.getSchematron())?.hasOwnProperty("uri")
       : false;
 
     // If the signal was not aborted, update the UI.
@@ -80,11 +77,8 @@ async function validate(document: TextDocument) {
             msg = "XML is valid against RNG grammar.";
             icon = "check";
         }
-        window.setStatusBarMessage(makeStatusMsg(msg, icon, hasSch, tail));
+        window.setStatusBarMessage(makeStatusMsg(msg, icon, Boolean(hasSch), tail));
         diagnosticCollection.set(document.uri, validationResult.diagnostics);
-        // force a paint before starting heavier work
-        // TODO. Can this be done better?
-        await new Promise<void>(resolve => setTimeout(resolve, 0));
       }
 
       // Perform schematron validation only after reporting on RNG validation, because it's slower.
@@ -127,7 +121,6 @@ export const validateCommand = commands.registerTextEditorCommand("sxml.validate
   const supportedLangs: string[] = workspace.getConfiguration("sxml").get("languagesToCheck") ?? ["xml"];
   
   if (activeTextEditor && supportedLangs.includes(activeTextEditor.document.languageId)) {
-    console.log("validating on user request.")
     validate(activeTextEditor.document);
   }
 });
@@ -136,14 +129,13 @@ export const validateCommand = commands.registerTextEditorCommand("sxml.validate
 export function activate(context: ExtensionContext) {
   console.log(`Extension "Scholarly XML" is now active.`);
   
-  // Set up a debounce timer for validation on document change
-  let validationTimer: NodeJS.Timeout;
-  const debounceDelay = 500;
+  // Track last keystroke time
+  let lastKeystroke = Date.now();
+  let checkTimer: NodeJS.Timeout | undefined = undefined;
+  const typeDelay = 500;
 
   // Get supported languages from settings:
   const supportedLangs: string[] = workspace.getConfiguration("sxml").get("languagesToCheck") ?? ["xml"];
-  // TODO: before refactoring I didn't run into the error "[relatedFiles] unknown language xml". 
-  // Why is it showing up now?
 
   // DIAGNOSTICS
   diagnosticCollection = languages.createDiagnosticCollection("xml-validation");
@@ -153,20 +145,22 @@ export function activate(context: ExtensionContext) {
   languages.registerCompletionItemProvider(supportedLangs, new SalveCompletionProvider(getManager), '<', ' ', '"')
 
   // EVENTS
-
-  // NB: this event triggers on save as well.
   workspace.onDidChangeTextDocument((event: TextDocumentChangeEvent) => {
     if (supportedLangs.includes(event.document.languageId) && event.document.uri.scheme === "file") {
-      // Use debounce to avoid excessive validation calls
+      lastKeystroke = Date.now();
 
-      // Clear the previous timer
-      clearTimeout(validationTimer);
+      // Clear existing timer
+      if (checkTimer) {
+        clearTimeout(checkTimer);
+      }
       
-      // Set a new timer to run the validation after the delay
-      validationTimer = setTimeout(async () => {
-        console.log("validating on text change.")
-        validate(event.document);
-      }, debounceDelay);
+      // Set up check for typing pause
+      checkTimer = setTimeout(() => {
+        const timeSinceLastKeystroke = Date.now() - lastKeystroke;
+        if (timeSinceLastKeystroke >= typeDelay) {
+          validate(event.document);
+        }
+      }, typeDelay);
     }
   });
 
@@ -179,7 +173,6 @@ export function activate(context: ExtensionContext) {
   window.onDidChangeActiveTextEditor(async (editor: TextEditor | undefined) => {
     window.setStatusBarMessage("");
     if (editor && editor.document && supportedLangs.includes(editor.document.languageId) && editor.document.uri.scheme === "file") {
-      console.log("validating on active editor change.")
       validate(editor.document);
     }
   });
@@ -187,7 +180,6 @@ export function activate(context: ExtensionContext) {
   context.subscriptions.push(validateCommand, suggestAttValue, translateCursor, wrapWithEl);
   
   // Kick off on activation.
-  console.log("validating on activation.")
   commands.executeCommand("sxml.validate");
 }
 

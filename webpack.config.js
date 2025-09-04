@@ -8,10 +8,13 @@ const path = require('path');
 const config = {
   target: 'node',
 
-  entry: './src/extension.ts',
+  entry: {
+    extension: './src/extension.ts',
+    schematronWorker: './src/workers/schematronWorker.ts'
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'extension.js',
+    filename: '[name].js',               // [name] = "extension" or "schematronWorker"
     libraryTarget: 'commonjs2',
     devtoolModuleFilenameTemplate: '../[resource-path]'
   },
@@ -20,7 +23,7 @@ const config = {
     vscode: 'commonjs vscode',
     salve: 'salve'
   },
-  resolve: {    
+  resolve: {
     extensions: ['.ts', '.js']
   },
   module: {

@@ -1,6 +1,8 @@
 import { ERR_SCH, ERR_VALID, ERR_WELLFORM, NO_ERR } from "../constants";
 import { SaxesParser } from "saxes";
 import { Diagnostic, Range, window, workspace } from "vscode";
+import { Worker } from 'worker_threads';
+import { join } from 'path';
 
 import type { XMLDocumentManager } from "../core/xmlDocumentManager";
 import type { ValidationResult, TagInfo, XIncludeLocation, NodePath } from "../types";
@@ -268,10 +270,8 @@ function validateWithSchema(
     parser.write(xmlSource).close();
   } catch(err) {
     // check if the validation has been aborted before reporting.
-    if (signal.aborted) {
-      console.log("Validation was cancelled.");
-      return;
-    }
+    if (signal.aborted) return;
+  
     errorCount++;
     const e = err as Error
     error = ERR_WELLFORM;
@@ -330,36 +330,69 @@ export async function validateWithSchematron(manager: XMLDocumentManager, signal
   if (signal.aborted) return;
 
   const sch = await manager.getSchematron();
+
+  if (!sch) return;
+
   const xmlSource = await manager.documentText;
 
-  try {
-    const errors = await sch.schematron.validate(xmlSource);
-    const diagnostics: Diagnostic[] = [];
-    
-    const errorCount = errors ? errors.length : 0;
-
-    if (errors) {
-      for (const err of errors) {
-        const errLoc = await locateSchErrInXML(xmlSource, err.location);
-        if (errLoc) {
-          const [startLine, startColumn, endLine, endColumn] = errLoc;
-          const errorRange = new Range(startLine, startColumn, endLine, endColumn);
-          diagnostics.push(new Diagnostic(errorRange, err.text));
+  return new Promise((resolve) => {
+    const worker = new Worker(
+      join(__dirname, './schematronWorker.js'),
+      {
+        workerData: {
+          xmlSource,
+          schematronSource: sch.rawText,
+          embedded: sch.embedded
         }
       }
-    }
+    );
 
-    return {
-      errorType: ERR_SCH,
-      errorCount,
-      diagnostics
-    }
-  } catch (error) {
-    console.error('Schematron validation failed:', error);
-    window.showInformationMessage("Schematron validation failed.");
-    return;
-  }
-};
+    // Handle abortion
+    signal.addEventListener('abort', () => {
+      worker.terminate();
+      resolve(void 0);
+    });
+
+    worker.on('message', async (result) => {
+      if (result.error) {
+        // only report to user if error is not because of xml parsing (well-formedness)
+        if (result.errorName !== "XError") {
+          console.error('Schematron validation failed:', result.error);
+          window.showInformationMessage("Schematron validation failed.");
+        }
+        resolve(void 0);
+        return;
+      }
+
+      const errors = result.errors;
+      const diagnostics: Diagnostic[] = [];
+      const errorCount = errors ? errors.length : 0;
+
+      if (errors) {
+        for (const err of errors) {
+          const errLoc = await locateSchErrInXML(xmlSource, err.location);
+          if (errLoc) {
+            const [startLine, startColumn, endLine, endColumn] = errLoc;
+            const errorRange = new Range(startLine, startColumn, endLine, endColumn);
+            diagnostics.push(new Diagnostic(errorRange, err.text));
+          }
+        }
+      }
+
+      resolve({
+        errorType: ERR_SCH,
+        errorCount,
+        diagnostics
+      });
+    });
+
+    worker.on('error', (error) => {
+      console.error('Worker error:', error);
+      window.showInformationMessage("Schematron validation failed.");
+      resolve(void 0);
+    });
+  });
+}
 
 async function locateSchErrInXML(xml: string, xpath: string): Promise<[number, number, number, number] | null> {
   // gives the xpath expression, finds the line number using saxes parser

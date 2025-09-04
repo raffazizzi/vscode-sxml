@@ -11,16 +11,12 @@ export interface StoredGrammar {
 export interface StoredSchematron {
   uri?: string;
   schematron?: typeof Schematron | null;
+  rawText?: string
+  embedded?: boolean
 }
 
 export interface GrammarStore {
   [key: string]: StoredGrammar;
-}
-
-export interface SchematronData {
-  embedded: boolean;
-  uri?: string;
-  rawText?: string;
 }
 
 // XPath notation returned by node-xsl-schematron is in Clark notation.
