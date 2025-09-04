@@ -4,6 +4,7 @@
   <card>     <name>John Smith</name><email>js@example.com</email></card>
   <card>
     <name>Fred Bloggs</name>
+    <email>as</email>
   </card>
   <card>
     <name>Jane Doe</name>

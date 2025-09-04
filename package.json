@@ -86,6 +86,22 @@
 							"odd": "https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_odds.rng"
 						},
 						"markdownDescription": "Dictionary of `\"language\": \"schema\"` to use as the default RELAX NG schema for files with that language or extension."
+					},
+					"sxml.xincludeSupport": {
+						"type": "boolean",
+						"additionalProperties": {
+							"type": "string"
+						},
+						"default": true,
+						"markdownDescription": "Toggle support for XInclude processing. If enabled, XIncludes will be resolved before validation and completion."
+					},
+					"sxml.schematronSupport": {
+						"type": "boolean",
+						"additionalProperties": {
+							"type": "string"
+						},
+						"default": true,
+						"markdownDescription": "Toggle support for Schematron validation."
 					}
 				}
 			}
