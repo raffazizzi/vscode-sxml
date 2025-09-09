@@ -5,7 +5,7 @@
 	"description": "XML validator (RELAX NG only) and autocomplete with features typically needed by academic encoding projects.",
 	"version": "0.4.0",
 	"engines": {
-		"vscode": "^1.98.0"
+		"vscode": "^1.103.2"
 	},
 	"icon": "images/sxml_logo.png",
 	"categories": [
@@ -30,7 +30,6 @@
 		"url": "https://github.com/raffazizzi/vscode-sxml"
 	},
 	"activationEvents": [
-		"onCommand:sxml.validate",
 		"onLanguage:xml",
 		"onLanguage:pretext",
 		"onLanguage:odd"
@@ -69,11 +68,14 @@
 				"title": "Scholarly XML",
 				"properties": {
 					"sxml.languagesToCheck": {
-						"type":"array",
+						"type": "array",
 						"items": {
-							"type":"string"
+							"type": "string"
 						},
-						"default":["xml","pretext"],
+						"default": [
+							"xml",
+							"pretext"
+						],
 						"description": "Specify any additional languages on which Scholarly XML should activate."
 					},
 					"sxml.defaultSchemas": {
@@ -118,24 +120,16 @@
 		"test-compile": "tsc -p ./"
 	},
 	"devDependencies": {
-		"@types/glob": "^7.2.0",
-		"@types/mocha": "^9.1.1",
-		"@types/node": "^18.6.2",
 		"@types/vscode": "^1.69.0",
-		"cross-fetch": "^3.1.5",
-		"glob": "^8.0.3",
-		"mocha": "^10.0.0",
-		"saxes": "^6.0.0",
 		"ts-loader": "^9.3.1",
-		"tslint": "^6.1.3",
 		"typescript": "^4.7.4",
-		"vscode-test": "^1.6.1",
 		"webpack": "^5.74.0",
-		"webpack-cli": "^4.10.0"
+		"webpack-cli": "^4.10.0",
+		"xregexp": "4.3.0"
 	},
 	"dependencies": {
-		"file-url": "^4.0.0",
-		"node-xsl-schematron": "^1.0.3",
-		"salve-annos": "^1.2.4"
+		"node-xsl-schematron": "^1.1.0",
+		"salve-annos": "^1.2.4",
+		"saxes": "^6.0.0"
 	}
 }

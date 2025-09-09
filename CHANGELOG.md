@@ -44,3 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Updated to salve-annos 1.1.0 which has improved validation of xs:anyURI.
+
+## [1.0.0]
+
+### Added
+
+- Support for Schematron via worker.
+- Support for XInclude/@href

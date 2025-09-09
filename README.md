@@ -2,15 +2,23 @@
 
 Scholarly XML is a VSCode extension with a RELAX NG validator and autocomplete with features typically needed by academic encoding projects.
 
-Unlike most XML VSCode extensions, Scholarly XML _does not require Java_. The extension builds on a fork of [Salve](https://github.com/mangalam-research/salve), a TypeScript RELAX NG implementation. This makes Scholarly XML easy to install for use with students, in workshops, and in minimal computing projects.
+Unlike most XML VSCode extensions, Scholarly XML _does not require Java_. The extension builds on a fork of [Salve](https://github.com/salve-iterum/salve), a TypeScript RELAX NG implementation. This makes Scholarly XML easy to install for use with students, in workshops, and in minimal computing projects.
+
+## Rahtz Prize for TEI Ingenuity
+
+![Text Encoding Initiative Logo](./images/TEI_Logo_Light.png)
+
+In 2024, this extension was awarded the [Rahtz Prize for TEI Ingenuity](https://tei-c.org/activities/rahtz-prize-for-tei-ingenuity/).
 
 ## Features
 
 * Checks if XML is well-formed.
 * Validates XML with associated RELAX NG schema (via `<?xml-model?>`) when you open or modify a file.
+* Validates XML with associated Schematron (via `<?xml-model?>`) when you open or modify a file (configurable).
 * Makes schema aware suggestions for elements, attributes, and attribute values.
 * When available, shows documentation from schema for elements, attributes, and attribute values.
 * Wrap selected text with tags using Ctrl+e
+* Partial XInclude support (configurable): only `<xi:include href="URL_TO_XML">` is supported. More support is scheduled for future releases.
 
 ## Usage
 
@@ -35,6 +43,32 @@ Validation will trigger automatically when you open an XML file and when you mak
 Validation continues as you type and the result is shown in the status bar at the bottom.
 
 ![Demo showing validation on typing](https://github.com/raffazizzi/vscode-sxml/raw/main/images/rm-validate.gif)
+
+#### Validation with Schematron
+
+A Schematron file needs to be associated via `<?xml-model?>`. 
+
+It can be embedded in RNG:
+
+```xml
+<?xml-model
+  href="tei_all.rng"
+  schematypens="http://purl.oclc.org/dsdl/schematron"
+  type="application/xml"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" />
+```
+
+or it can be standalone:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model 
+  href="schtest.sch" 
+  schematypens="http://purl.oclc.org/dsdl/schematron"
+  type="application/xml"
+?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0" />
+```
 
 ### Suggestions and documentation
 

@@ -1,7 +1,7 @@
 import { normalizeSchemaUrl } from "../utils";
 import { Uri, window, workspace } from "vscode";
 
-import type { SchematronData } from "../types";
+import type { StoredSchematron } from "../types";
 import type { TextDocument } from "vscode";
 
 export function locateSchema(document: TextDocument): string | undefined {
@@ -23,7 +23,7 @@ export function locateSchema(document: TextDocument): string | undefined {
   return schema;
 }
 
-export async function locateSchematron(document: TextDocument, rngURI?: string): Promise<void | SchematronData> {
+export async function locateSchematron(document: TextDocument, rngURI?: string): Promise<void | StoredSchematron> {
   const fileText = document.getText();
 
   let schematronURL: string | undefined;
