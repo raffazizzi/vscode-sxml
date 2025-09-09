@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated to salve-annos 1.1.0 which has improved validation of xs:anyURI.
 
-## [1.0.0]
+## [0.4.0]
 
 ### Added
 
