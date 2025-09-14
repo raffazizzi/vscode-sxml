@@ -58,6 +58,8 @@ export async function resolveXIncludes(xmlSource: string, depth = 0): Promise<st
             // But only if it’s in the top-level document.
             if (depth > 0) return resolvedNestedXml;
 
+            // TODO: Need to report URI of nested XIncludes.
+
             const piEnter = `<?xml-xi-map-enter uri="${hrefURL}" parent-line="${line}" parent-col="${col}"?>`;
             const piLeave = `<?xml-xi-map-leave?>`;
             return `${piEnter}${resolvedNestedXml}${piLeave}`;

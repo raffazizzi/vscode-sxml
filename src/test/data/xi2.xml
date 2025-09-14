@@ -2,4 +2,5 @@
 <card>
     <name>Nomen Falsum</name>
     <email>nf@example.net</email>
+    <error/>
 </card>

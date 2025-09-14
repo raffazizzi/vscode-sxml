@@ -71,6 +71,8 @@ function validateWithSchema(
   // This variable tracks the total number of lines added by includes,
   // minus the lines taken up by the <xi:include> tags themselves.
   let lineAdjustment = 0;
+
+  // TODO. fireEvent() can take any params in Salve, but we need more structure here.
   function fireEvent(name: string, args: any[]): void {
     const ret = walker.fireEvent(name, args);
     if (ret instanceof Array) {
@@ -82,6 +84,17 @@ function validateWithSchema(
         let lineNumber = parser.line - 1; // Convert to 0-based line
         let errorColumn = parser.column;
         let startColumn = 0;
+
+        // When the error is expressed on endTag, it should still be reported on the startTag.
+        if (name === "endTag") {
+          const tagInfo: Partial<TagInfo> = {
+            name: args[4],
+            line: args[2],
+            column: args[3]
+          }
+          lineNumber = (tagInfo.line || 1) - 1; // Convert to 0-based line
+          errorColumn = (tagInfo.column || 0)
+        }
 
         const currentInclude = includeLocationStack.length > 0 ? includeLocationStack[includeLocationStack.length - 1] : null;
 
@@ -205,7 +218,10 @@ function validateWithSchema(
       tagStack.push({
         uri: node.uri || "",
         local: node.local || "",
+        name: node.name,
         hasContext: nsDefinitions.length !== 0,
+        line: parser.line,
+        column: parser.column
       });
     });
   
@@ -220,7 +236,7 @@ function validateWithSchema(
         errorCount++;
         throw new Error("stack underflow");
       }
-      fireEvent("endTag", [tagInfo.uri, tagInfo.local]);
+      fireEvent("endTag", [tagInfo.uri, tagInfo.local, tagInfo.line, tagInfo.column, tagInfo.name]);
       if (tagInfo.hasContext) {
         nameResolver.leaveContext();
       }
@@ -259,7 +275,7 @@ function validateWithSchema(
       const result = walker.end();
       if (result !== false) {
         error = ERR_WELLFORM;
-        errorCount+=result.length;
+        errorCount += result.length;
         for (const err of result) {
           console.log(`on end`);
           console.log(err.toString());
@@ -299,7 +315,7 @@ function validateWithSchema(
       }
     } else {
       // Error is in the main file. Adjust line number based on previous includes.
-        lineNumber -= lineAdjustment;
+      lineNumber -= lineAdjustment;
       const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri.toString());
       if (document) {
           const lineText = document.lineAt(lineNumber).text;

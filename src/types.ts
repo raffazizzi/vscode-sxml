@@ -34,6 +34,9 @@ export type TagInfo = {
   uri: string;
   local: string;
   hasContext: boolean;
+  name?: string;
+  line?: number;
+  column?: number;
 };
 
 export interface XIncludeLocation {
