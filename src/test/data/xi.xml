@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <card xmlns:xi="http://www.w3.org/2001/XInclude">
-    <name>Nomen Falsum</name>
+    <xi:include href="xi2.xml"/>
     <email>nf@example.net</email>
     <place/>
     <occupation/>
-    <xi:include href="xi2.xml"/>
 </card>

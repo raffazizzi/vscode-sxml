@@ -2,7 +2,8 @@ import { ERR_SCH, ERR_VALID, ERR_WELLFORM, NO_ERR } from "../constants";
 import { SaxesParser } from "saxes";
 import { Diagnostic, Range, window, workspace } from "vscode";
 import { Worker } from 'worker_threads';
-import { join } from 'path';
+import { join, basename } from 'path';
+import { URL } from 'url';
 
 import type { XMLDocumentManager } from "../core/XMLDocumentManager";
 import type { ValidationResult, TagInfo, XIncludeLocation, NodePath } from "../types";
@@ -68,6 +69,7 @@ function validateWithSchema(
   const diagnostics: Diagnostic[] = [];
   const walker = tree.newWalker(nameResolver);
   const includeLocationStack: XIncludeLocation[] = [];
+  const nestedIncludeStack: string[] = [];
   // This variable tracks the total number of lines added by includes,
   // minus the lines taken up by the <xi:include> tags themselves.
   let lineAdjustment = 0;
@@ -84,6 +86,7 @@ function validateWithSchema(
         let lineNumber = parser.line - 1; // Convert to 0-based line
         let errorColumn = parser.column;
         let startColumn = 0;
+        let {msg} = err;
 
         // When the error is expressed on endTag, it should still be reported on the startTag.
         if (name === "endTag") {
@@ -102,6 +105,14 @@ function validateWithSchema(
           // Error is inside an included file. Point to the include tag in the parent document.
           diagnosticUri = currentInclude.parentUri;
           lineNumber = currentInclude.line - 1; // Saxes line is 1-based.
+
+          // Update error message
+          let xiURI = currentInclude.uri;
+          if (nestedIncludeStack.length > 0) {
+            xiURI = nestedIncludeStack[nestedIncludeStack.length - 1];
+          }
+          const uriToShow = basename(new URL(xiURI).pathname || "");
+          msg = `${uriToShow}: ${msg}`;
           
           const document = workspace.textDocuments.find(doc => doc.uri.toString() === diagnosticUri);
           if (document) {
@@ -146,7 +157,7 @@ function validateWithSchema(
             return `"${name.name}" ${ns}`;
         }).join(" ");
     
-        diagnostics.push(new Diagnostic(range, `${err.msg} — ${namesMsg}`));
+        diagnostics.push(new Diagnostic(range, `${msg} — ${namesMsg}`));
       }
     }
   }
@@ -182,6 +193,10 @@ function validateWithSchema(
         let range = new Range(parser.line - 1, parseInt(getAttr("parent-start"), 10), parser.line - 1, parseInt(getAttr("parent-col"), 10));
 
         diagnostics.push(new Diagnostic(range, "Could not resolve XInclude"));
+      } else if (pi.target === "xml-xi-nested-enter") {
+        nestedIncludeStack.push(getAttr("uri"));
+      } else if (pi.target === "xml-xi-nested-leave") {
+        nestedIncludeStack.pop();
       }
     });
 
@@ -290,6 +305,7 @@ function validateWithSchema(
   
     errorCount++;
     const e = err as Error
+    let { message } = e;
     error = ERR_WELLFORM;
     let lineNumber = parser.line - 1; // Convert to 0-based line
     let errorColumn = parser.column;
@@ -298,6 +314,14 @@ function validateWithSchema(
     if (currentInclude) {
       // Error is inside an included file. Point to the include tag in the parent document.
       lineNumber = currentInclude.line - 1; // Saxes line is 1-based.
+
+      // Update error message
+      let xiURI = currentInclude.uri;
+      if (nestedIncludeStack.length > 0) {
+        xiURI = nestedIncludeStack[nestedIncludeStack.length - 1];
+      }
+      const uriToShow = basename(new URL(xiURI).pathname || "");
+      message = `${uriToShow}: ${message}`;
       
       const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri);
       if (document) {
@@ -332,7 +356,7 @@ function validateWithSchema(
       }
     }
     let range = new Range(lineNumber, startColumn, lineNumber, errorColumn);
-    diagnostics.push(new Diagnostic(range, e.message));
+    diagnostics.push(new Diagnostic(range, message));
   } 
 
   return {

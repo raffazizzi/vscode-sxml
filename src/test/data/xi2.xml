@@ -1,6 +1,2 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<card>
-    <name>Nomen Falsum</name>
-    <email>nf@example.net</email>
-    <error/>
-</card>
+<name>Nomen Falsum<error/></name>
