@@ -33,7 +33,6 @@ export async function validateDocument(manager: XMLDocumentManager, signal: Abor
     } else {
       try {
         parser.write(xmlSource).close();
-        console.log('validation without schema? -- success technically')
         return {
           errorType: "",
           errorCount: 0,
