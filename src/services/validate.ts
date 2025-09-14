@@ -25,6 +25,7 @@ export async function validateDocument(manager: XMLDocumentManager, signal: Abor
   const parser = manager.parser;
   const nameResolver = manager.nameResolver;
 
+  
   if (parser && nameResolver) {
     if (grammar && docUri) {
       // If the grammar is set, the other values are too.
@@ -32,7 +33,12 @@ export async function validateDocument(manager: XMLDocumentManager, signal: Abor
     } else {
       try {
         parser.write(xmlSource).close();
-        return;
+        console.log('validation without schema? -- success technically')
+        return {
+          errorType: "",
+          errorCount: 0,
+          diagnostics: []
+        }
       } catch(err: unknown) {
         const e = err as Error
         const range = new Range(parser.line-1, 0, parser.line-1, parser.column);
