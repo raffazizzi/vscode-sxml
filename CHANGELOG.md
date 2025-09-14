@@ -51,3 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for Schematron via worker.
 - Support for XInclude/@href
+
+### Changed
+
+- Element content errors are now reported on the opening tag instead of the closing tag.
+
+### Fixed
+
+- Better positioning of error ranges. 

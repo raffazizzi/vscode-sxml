@@ -6,7 +6,7 @@ Unlike most XML VSCode extensions, Scholarly XML _does not require Java_. The ex
 
 ## Rahtz Prize for TEI Ingenuity
 
-![Text Encoding Initiative Logo](./images/TEI_Logo_Light.png)
+![Text Encoding Initiative Logo](https://github.com/raffazizzi/vscode-sxml/raw/main/images/TEI_Logo_Light.png)
 
 In 2024, this extension was awarded the [Rahtz Prize for TEI Ingenuity](https://tei-c.org/activities/rahtz-prize-for-tei-ingenuity/).
 
