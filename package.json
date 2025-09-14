@@ -97,6 +97,11 @@
 						"default": true,
 						"markdownDescription": "Toggle support for XInclude processing. If enabled, XIncludes will be resolved before validation and completion."
 					},
+					"sxml.xincludeDepth": {
+            "type": "number",
+            "default": 50,
+            "markdownDescription": "Maximum depth level for XInclude processing."
+          },
 					"sxml.schematronSupport": {
 						"type": "boolean",
 						"additionalProperties": {

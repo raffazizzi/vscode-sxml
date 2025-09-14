@@ -31,7 +31,7 @@ function makeStatusMsg(msg: string, icon: string, sch = false, tail?: string) {
   const fullMsg = `${msg}${_tail}`;
   return sch
     ? `$(gear~spin) ${fullMsg}; checking Schematron.`
-    : `$(${icon}) ${fullMsg}.`
+    : `$(${icon}) ${fullMsg}.`;
 }
 
 async function validate(document: TextDocument) {

@@ -15,7 +15,8 @@ export async function resolveXIncludes(xmlSource: string, depth = 0): Promise<st
   resolverParser.on("opentag", (node: SaxesTag) => {
     if (node.uri === XINCLUDE_NS && node.local === XINCLUDE_LOCAL) {
       foundXi = true;
-      if (depth < 50) { // TODO: this should be configurable.
+      const depthLimit = workspace.getConfiguration("sxml").get("xincludeDepth") as number || 50;
+      if (depth < depthLimit) {
         // Find the start of the tag by searching backwards from the parser’s current position.
         // The parser’s position is at the character after the ">" of the opening tag.
         const tagStartPosition = xmlSource.lastIndexOf("<", resolverParser.position - 1);

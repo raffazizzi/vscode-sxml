@@ -79,78 +79,80 @@ function validateWithSchema(
   // minus the lines taken up by the <xi:include> tags themselves.
   let lineAdjustment = 0;
 
-  // TODO. fireEvent() can take any params in Salve, but we need more structure here.
-  function fireEvent(name: string, args: any[]): void {
+  function reportError(_lineNumber: number, _errorColumn: number, _startColumn: number, msg: string) {
+    const currentInclude = includeLocationStack.length > 0 ? includeLocationStack[includeLocationStack.length - 1] : null;
+    let lineNumber = _lineNumber;
+    let message = msg;
+    let errorColumn = _errorColumn;
+    let startColumn = _startColumn;
+
+    if (currentInclude) {
+      // Error is inside an included file. Point to the include tag in the parent document.
+      lineNumber = currentInclude.line - 1; // Saxes line is 1-based.
+      let startColumn = 0;
+
+      // Update error message
+      let xiURI = currentInclude.uri;
+      if (nestedIncludeStack.length > 0) {
+        xiURI = nestedIncludeStack[nestedIncludeStack.length - 1];
+      }
+      const uriToShow = basename(new URL(xiURI).pathname || "");
+      message = `${uriToShow}: ${msg}`;
+      const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri);
+      if (document) {
+        const lineText = document.lineAt(lineNumber).text;
+        // Try to find the whole <xi:include ... /> tag to highlight it.
+        const tagMatch = lineText.match(/<xi:include\s+[^>]*>/);
+        if (tagMatch && tagMatch.index !== undefined) {
+            startColumn = tagMatch.index;
+            errorColumn = startColumn + tagMatch[0].length;
+        } else {
+          // Fallback to the column from the parser if regex fails.
+          startColumn = currentInclude.column > 0 ? currentInclude.column - 1 : 0;
+          errorColumn = startColumn + 1;
+        }
+      }
+    } else {
+      // Error is in the main file. Adjust line number based on previous includes.
+      lineNumber -= lineAdjustment;
+      const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri.toString());
+      if (document) {
+        const lineText = document.lineAt(lineNumber).text;
+        let errorCol0 = errorColumn - 1; // Convert to 0-based
+        errorCol0 = Math.min(errorCol0, lineText.length - 1); // Ensure within bounds
+        // Find the start of the tag by searching for "<" before the error column
+        for (let i = errorCol0; i >= 0; i--) {
+          if (lineText[i] === "<") {
+              startColumn = i;
+              break;
+          }
+        }
+      }
+    }
+    return {
+      lineNumber, message, errorColumn, startColumn
+    }
+  }
+
+  function fireEvent(name: string, args: string[], tagInfo?: TagInfo): void {
     const ret = walker.fireEvent(name, args);
     if (ret instanceof Array) {
       error = ERR_VALID;
       errorCount += ret.length;
 
       for (const err of ret) {
-        let diagnosticUri = docUri;
         let lineNumber = parser.line - 1; // Convert to 0-based line
         let errorColumn = parser.column;
         let startColumn = 0;
-        let {msg} = err;
+        let message = err.msg;
 
         // When the error is expressed on endTag, it should still be reported on the startTag.
-        if (name === "endTag") {
-          const tagInfo: Partial<TagInfo> = {
-            name: args[4],
-            line: args[2],
-            column: args[3]
-          }
+        if (name === "endTag" && tagInfo) {
           lineNumber = (tagInfo.line || 1) - 1; // Convert to 0-based line
           errorColumn = (tagInfo.column || 0)
         }
 
-        const currentInclude = includeLocationStack.length > 0 ? includeLocationStack[includeLocationStack.length - 1] : null;
-
-        if (currentInclude) {
-          // Error is inside an included file. Point to the include tag in the parent document.
-          diagnosticUri = currentInclude.parentUri;
-          lineNumber = currentInclude.line - 1; // Saxes line is 1-based.
-
-          // Update error message
-          let xiURI = currentInclude.uri;
-          if (nestedIncludeStack.length > 0) {
-            xiURI = nestedIncludeStack[nestedIncludeStack.length - 1];
-          }
-          const uriToShow = basename(new URL(xiURI).pathname || "");
-          msg = `${uriToShow}: ${msg}`;
-          
-          const document = workspace.textDocuments.find(doc => doc.uri.toString() === diagnosticUri);
-          if (document) {
-            const lineText = document.lineAt(lineNumber).text;
-            // Try to find the whole <xi:include ... /> tag to highlight it.
-            const tagMatch = lineText.match(/<xi:include\s+[^>]*>/);
-            if (tagMatch && tagMatch.index !== undefined) {
-                startColumn = tagMatch.index;
-                errorColumn = startColumn + tagMatch[0].length;
-            } else {
-              // Fallback to the column from the parser if regex fails.
-              startColumn = currentInclude.column > 0 ? currentInclude.column - 1 : 0;
-              errorColumn = startColumn + 1;
-            }
-          }
-        } else {
-          // Error is in the main file. Adjust line number based on previous includes.
-            lineNumber -= lineAdjustment;
-          const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri.toString());
-          if (document) {
-            const lineText = document.lineAt(lineNumber).text;
-            let errorCol0 = errorColumn - 1; // Convert to 0-based
-            errorCol0 = Math.min(errorCol0, lineText.length - 1); // Ensure within bounds
-    
-            // Find the start of the tag by searching for "<" before the error column
-            for (let i = errorCol0; i >= 0; i--) {
-              if (lineText[i] === "<") {
-                  startColumn = i;
-                  break;
-              }
-            }
-          }
-        }
+        ({lineNumber, errorColumn, startColumn, message} = reportError(lineNumber, errorColumn, startColumn, message));
     
         // Create range from the start of the tag to the error column
         let range = new Range(lineNumber, startColumn, lineNumber, errorColumn);
@@ -162,7 +164,7 @@ function validateWithSchema(
             return `"${name.name}" ${ns}`;
         }).join(" ");
     
-        diagnostics.push(new Diagnostic(range, `${msg} — ${namesMsg}`));
+        diagnostics.push(new Diagnostic(range, `${message} — ${namesMsg}`));
       }
     }
   }
@@ -184,8 +186,7 @@ function validateWithSchema(
         includeLocationStack.push({
           uri: getAttr("uri"),
           line: parseInt(getAttr("parent-line"), 10),
-          column: parseInt(getAttr("parent-col"), 10),
-          parentUri: getAttr("parent-uri"),
+          column: parseInt(getAttr("parent-col"), 10)
         });
       } else if (pi.target === "xml-xi-map-leave") {
         const justLeft = includeLocationStack.pop();
@@ -230,7 +231,7 @@ function validateWithSchema(
           nameResolver.definePrefix(definition[0], definition[1]);
         }
       }
-      fireEvent("enterStartTag", [node.uri, node.local]);
+      fireEvent("enterStartTag", [node.uri || "", node.local || ""]);
       for (const event of attributeEvents) {
         fireEvent(event[0], event.slice(1));
       }
@@ -256,7 +257,7 @@ function validateWithSchema(
         errorCount++;
         throw new Error("stack underflow");
       }
-      fireEvent("endTag", [tagInfo.uri, tagInfo.local, tagInfo.line, tagInfo.column, tagInfo.name]);
+      fireEvent("endTag", [tagInfo.uri, tagInfo.local], tagInfo);
       if (tagInfo.hasContext) {
         nameResolver.leaveContext();
       }
@@ -315,51 +316,7 @@ function validateWithSchema(
     let lineNumber = parser.line - 1; // Convert to 0-based line
     let errorColumn = parser.column;
     let startColumn = 0;
-    const currentInclude = includeLocationStack.length > 0 ? includeLocationStack[includeLocationStack.length - 1] : null;
-    if (currentInclude) {
-      // Error is inside an included file. Point to the include tag in the parent document.
-      lineNumber = currentInclude.line - 1; // Saxes line is 1-based.
-
-      // Update error message
-      let xiURI = currentInclude.uri;
-      if (nestedIncludeStack.length > 0) {
-        xiURI = nestedIncludeStack[nestedIncludeStack.length - 1];
-      }
-      const uriToShow = basename(new URL(xiURI).pathname || "");
-      message = `${uriToShow}: ${message}`;
-      
-      const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri);
-      if (document) {
-        const lineText = document.lineAt(lineNumber).text;
-        // Try to find the whole <xi:include ... /> tag to highlight it.
-        const tagMatch = lineText.match(/<xi:include\s+[^>]*>/);
-        if (tagMatch && tagMatch.index !== undefined) {
-            startColumn = tagMatch.index;
-            errorColumn = startColumn + tagMatch[0].length;
-        } else {
-            // Fallback to the column from the parser if regex fails.
-            startColumn = currentInclude.column > 0 ? currentInclude.column - 1 : 0;
-            errorColumn = startColumn + 1;
-        }
-      }
-    } else {
-      // Error is in the main file. Adjust line number based on previous includes.
-      lineNumber -= lineAdjustment;
-      const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri.toString());
-      if (document) {
-          const lineText = document.lineAt(lineNumber).text;
-          let errorCol0 = errorColumn - 1; // Convert to 0-based
-          errorCol0 = Math.min(errorCol0, lineText.length - 1); // Ensure within bounds
-  
-          // Find the start of the tag by searching for "<" before the error column
-          for (let i = errorCol0; i >= 0; i--) {
-              if (lineText[i] === "<") {
-                  startColumn = i;
-                  break;
-              }
-          }
-      }
-    }
+    ({lineNumber, errorColumn, startColumn, message} = reportError(lineNumber, errorColumn, startColumn, message));
     let range = new Range(lineNumber, startColumn, lineNumber, errorColumn);
     diagnostics.push(new Diagnostic(range, message));
   } 

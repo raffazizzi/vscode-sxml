@@ -43,7 +43,6 @@ export interface XIncludeLocation {
   uri: string;
   line: number;
   column: number;
-  parentUri: string;
 }
 
 export type ValidationResult = {

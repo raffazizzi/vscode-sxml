@@ -202,8 +202,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
     let tagFound = false;
 
     // Keep track of namespaces
-    // TODO: this should probably be done just once,
-    // not at every suggestion. But how?
+    // TODO: this should probably be done just once, not at every suggestion.
     const nsDefinitions: NSDef[] = [];
     let nsCount = 1;
 
