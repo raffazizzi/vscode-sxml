@@ -5,7 +5,7 @@
 	"description": "XML validator (RELAX NG and Schematron) and autocomplete with features typically needed by academic encoding projects.",
 	"version": "0.4.0",
 	"engines": {
-		"vscode": "^1.103.2"
+		"vscode": "^1.104.0"
 	},
 	"icon": "images/sxml_logo.png",
 	"categories": [
