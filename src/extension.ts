@@ -27,19 +27,21 @@ async function getManager(document: TextDocument): Promise<XMLDocumentManager> {
 }
 
 function makeStatusMsg(msg: string, icon: string, sch = false, tail?: string) {
-  const _tail = tail ? ` ${tail}` : "";
+  const _tail = tail ? `. ${tail}` : "";
   const fullMsg = `${msg}${_tail}`;
   return sch
-    ? `$(gear~spin) ${fullMsg}; checking Schematron.`
-    : `$(${icon}) ${fullMsg}.`;
+    ? `$(gear~spin) ${fullMsg}; checking Schematron`
+    : `$(${icon}) ${fullMsg}`;
 }
 
 async function validate(document: TextDocument) {
   const uri = document.uri.toString();
+  window.setStatusBarMessage("$(gear~spin) XML validation in progress...");
 
   // If a validation is already running for this document, cancel it.
   if (validationControllers.has(uri)) {
     validationControllers.get(uri)?.abort();
+    window.setStatusBarMessage("");
   }
   const controller = new AbortController();
   validationControllers.set(uri, controller);
@@ -64,17 +66,17 @@ async function validate(document: TextDocument) {
         // Update status
         switch (validationResult.errorType) {
           case ERR_VALID: 
-            msg = `XML is not valid.`;
+            msg = `XML is not valid`;
             tail = `Found ${validationResult.errorCount} errors`;
             break;
           case ERR_WELLFORM: 
-            msg = "XML is not well formed.";
+            msg = "XML is not well formed";
             break;
-          case ERR_SCHEMA: 
-            msg = "RNG schema is incorrect.";
+          case ERR_SCHEMA:
+            msg = "RNG schema is incorrect";
             break;
           default:
-            msg = "XML is valid against RNG grammar.";
+            msg = "XML is valid";
             icon = "check";
         }
         window.setStatusBarMessage(makeStatusMsg(msg, icon, Boolean(hasSch), tail));
@@ -96,7 +98,7 @@ async function validate(document: TextDocument) {
           const totalErrors = schValidationResult.errorCount + ((validationResult && validationResult.errorCount) || 0)
 
           // update status
-          const newMsg = makeStatusMsg("XML is not valid after Schematron validation", "error", false);
+          const newMsg = makeStatusMsg("XML is not valid after Schematron validation.", "error", false);
 
           window.setStatusBarMessage(`${newMsg} Found ${totalErrors} errors.`);
         } else if (validationResult) {
