@@ -183,6 +183,8 @@ export function activate(context: ExtensionContext) {
   
   // Kick off on activation.
   commands.executeCommand("sxml.validate");
+
+  return context;
 }
 
 // this method is called when the extension is deactivated
