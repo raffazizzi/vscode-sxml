@@ -15,7 +15,7 @@ export function normalizeSchemaUrl(schemaURL: string): string {
       return url.pathToFileURL(schemaURL).toString();
     } else {
       // NOT a full URL, treat as relative path
-      const basePath = activeEditor?.document.uri.path.split("/").slice(0, -1).join("/");
+      const basePath = activeEditor?.document.uri.fsPath.split(/[\\/]/).slice(0, -1).join("/");
       return url.pathToFileURL(basePath + "/" + schemaURL).toString();
     }
   }
