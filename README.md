@@ -1,6 +1,6 @@
 # Scholarly XML
 
-Scholarly XML is a VSCode extension with a RELAX NG validator and autocomplete with features typically needed by academic encoding projects.
+Scholarly XML is a VSCode extension with a RELAX NG and Schematron validator and autocomplete with features typically needed by academic encoding projects.
 
 Unlike most XML VSCode extensions, Scholarly XML _does not require Java_. The extension builds on a fork of [Salve](https://github.com/salve-iterum/salve), a TypeScript RELAX NG implementation. This makes Scholarly XML easy to install for use with students, in workshops, and in minimal computing projects.
 
