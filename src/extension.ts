@@ -1,4 +1,4 @@
-import { suggestAttValue, translateCursor, wrapWithEl } from "./commands";
+import { suggestAttValue, translateCursor, wrapWithEl, formatXml } from "./commands";
 import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
 import { XMLDocumentManager } from "./core/XMLDocumentManager";
 import { validateDocument, validateWithSchematron } from "./services/validate";
@@ -144,7 +144,7 @@ export function activate(context: ExtensionContext) {
   context.subscriptions.push(diagnosticCollection);
 
   // COMPLETIONS PROVIDER
-  languages.registerCompletionItemProvider(supportedLangs, new SalveCompletionProvider(getManager), '<', ' ', '"')
+  languages.registerCompletionItemProvider(supportedLangs, new SalveCompletionProvider(getManager), '<', ' ', '"', '#')
 
   // EVENTS
   workspace.onDidChangeTextDocument((event: TextDocumentChangeEvent) => {
@@ -179,13 +179,12 @@ export function activate(context: ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(validateCommand, suggestAttValue, translateCursor, wrapWithEl);
-  
+  context.subscriptions.push(validateCommand, suggestAttValue, translateCursor, wrapWithEl, formatXml);  
   // Kick off on activation.
   commands.executeCommand("sxml.validate");
 
   return context;
 }
 
-// this method is called when the extension is deactivated
+// this method is called when your extension is deactivated
 export function deactivate() {}

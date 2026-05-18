@@ -1,5 +1,5 @@
 import { CompletionRequest } from "../constants";
-import { truncate } from "../utils";
+import { truncate, collectXmlIds } from "../utils";
 import { CompletionItem } from "vscode";
 
 import type { XMLDocumentManager } from "../core/XMLDocumentManager";
@@ -42,8 +42,19 @@ export class SalveCompletionProvider implements CompletionItemProvider {
           // abort
           return Promise.resolve([]);
         }
+      } else if (context.triggerCharacter === "#") {
+        // User typed # inside an attribute value — suggest xml:id references
+        if (lineUntil.match(/="#$/)) {
+          return Promise.resolve(this.getIdRefCompletions(document));
+        } else {
+          return Promise.resolve([]);
+        }
       } else if (context.triggerKind === 0) {
-        if (lineUntil.match(/="\s*$/)) {
+        // Manually invoked (Ctrl+Space)
+        // Check if cursor is inside an attribute value that starts with "#"
+        if (lineUntil.match(/="#[^"]*$/)) {
+          return Promise.resolve(this.getIdRefCompletions(document));
+        } else if (lineUntil.match(/="\s*$/)) {
           request = CompletionRequest.VAL;
         } else if (textUntil.match(/<[^>]+$/)) {
           request = CompletionRequest.ATT;
@@ -54,6 +65,23 @@ export class SalveCompletionProvider implements CompletionItemProvider {
       }
       
       return this.getCompletions(document, position, offset, request);
+  }
+
+  /**
+   * Returns completion items for IDREF attributes (TEI convention: #id).
+   * Scans the whole document for xml:id values and returns them prefixed with #.
+   */
+  private getIdRefCompletions(document: TextDocument): CompletionItem[] {
+    const ids = collectXmlIds(document.getText());
+    return ids.map(id => {
+      const ci = new CompletionItem(`#${id}`, 24);
+      ci.insertText = `#${id}`;
+      ci.detail = "xml:id reference";
+      ci.documentation = `Reference to element with xml:id="${id}"`;
+      // filterText ensures VS Code matches against the full #id string
+      ci.filterText = `#${id}`;
+      return ci;
+    });
   }
 
   private async getCompletions(document: TextDocument, position: Position, offset: number, request: string): Promise<CompletionItem[]> {
@@ -218,7 +246,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
         attStack.length = 0;
         if (request !== CompletionRequest.TAG) {
           tagFound = false;
-          // If there is no > between the cursor offset and the parser’s
+          // If there is no > between the cursor offset and the parser's
           // then we have entered the element
           if (!documentText.substring(parser.position, offset).includes(">")) {
             tagFound = true;
@@ -291,7 +319,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
                 }
                 showValSuggestion();
               } else if (offset === parser.position - 2) {
-                // there were no previous attributes, so we can’t rely on the stack.
+                // there were no previous attributes, so we can't rely on the stack.
                 // -2 makes up for equal sign and first quote already consumed
                 const atts = Object.entries(node.attributes);
                 const att = atts[atts.length - 1];

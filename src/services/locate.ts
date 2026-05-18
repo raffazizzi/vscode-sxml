@@ -15,7 +15,14 @@ export function locateSchema(document: TextDocument): string | undefined {
     ?? fileText.match(/<\?xml-model.+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".+?href="([^"]+)"/s);
 
   if (schemaURLMatch) schemaURL = schemaURLMatch[1];
-
+//this function gets the full text of xml file, then searches for the model and href in it. 
+//if it finds it returns otherwise it returns undefined. 
+//adding a check between that checks did we find the model line? if yes but no href warn the user
+const hasXmlModel = fileText.match(/<\?xml-model/);
+if (hasXmlModel && !schemaURLMatch) {
+  console.log("Found xml-model but no href!");
+  window.showInformationMessage("Schema not associated correctly — make sure you're using href= in your <?xml-model?>");
+}
   if (!schemaURL) return undefined;
 
   const schema = schemaURL && normalizeSchemaUrl(schemaURL);

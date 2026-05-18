@@ -1,5 +1,6 @@
 import { XMLname } from "./constants";
-import { commands, Selection, window } from "vscode";
+import { commands, Range, Selection, window } from "vscode";
+import { Formatter, FormatterError } from 'tei-xml-fmt';
 
 export const suggestAttValue = commands.registerTextEditorCommand(
   'sxml.suggestAttValue', (textEditor) => {
@@ -28,7 +29,6 @@ export const wrapWithEl = commands.registerTextEditorCommand(
       value: '',
       placeHolder: 'Wrap selection with element: write element',
       validateInput: text => {
-        // Make sure it's an XML Name
         if (text.match(XMLname)) {
           return null;
         }
@@ -44,3 +44,28 @@ export const wrapWithEl = commands.registerTextEditorCommand(
     });
   }
 });
+
+export const formatXml = commands.registerTextEditorCommand(
+  'sxml.formatDocument', async (textEditor) => {
+    const document = textEditor.document;
+    const text = document.getText();
+
+    try {
+      const formatter = new Formatter();
+      const formatted = formatter.format(text);
+
+      const fullRange = new Range(
+        document.positionAt(0),
+        document.positionAt(text.length)
+      );
+
+      textEditor.edit(editBuilder => {
+        editBuilder.replace(fullRange, formatted);
+      });
+    } catch (err) {
+      if (err instanceof FormatterError) {
+        window.showErrorMessage(`Could not format: ${err.message}`);
+      }
+    }
+  }
+);

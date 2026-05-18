@@ -28,29 +28,24 @@ export function truncate(str: string, n: number){
 export function parseXPath(xpath: string): XPathStep[] {
   const steps: XPathStep[] = [];
   let pos = 0;
-
   while (pos < xpath.length) {
     if (xpath[pos] !== '/') {
       throw new Error(`Expected '/' at position ${pos}: ${xpath.slice(pos, pos + 20)}`);
     }
     pos++; // skip '/'
-
     // Check for @
     const isAttribute = xpath[pos] === '@';
     if (isAttribute) pos++;
-
     if (xpath.slice(pos, pos + 2) !== 'Q{') {
       throw new Error(`Expected 'Q{' at position ${pos}: ${xpath.slice(pos, pos + 20)}`);
     }
     pos += 2;
-
     const nsEnd = xpath.indexOf('}', pos);
     if (nsEnd === -1) {
       throw new Error(`Unterminated namespace at position ${pos}`);
     }
     const namespace = xpath.slice(pos, nsEnd);
     pos = nsEnd + 1;
-
     // Read local name
     const nameMatch = xpath.slice(pos).match(/^([^\[/@]+)/);
     if (!nameMatch) {
@@ -58,7 +53,6 @@ export function parseXPath(xpath: string): XPathStep[] {
     }
     const local = nameMatch[1];
     pos += local.length;
-
     // Optional index (for elements)
     let index: number | undefined = undefined;
     if (xpath[pos] === '[') {
@@ -69,14 +63,12 @@ export function parseXPath(xpath: string): XPathStep[] {
       index = parseInt(xpath.slice(pos + 1, idxEnd), 10);
       pos = idxEnd + 1;
     }
-
     steps.push({
       name: { namespace, local },
       isAttribute,
       index: isAttribute ? undefined : index ?? 1,
     });
   }
-
   return steps;
 }
 
@@ -98,4 +90,22 @@ export function makeStatusMsg(msg: string, icon: string, sch = false, tail?: str
   return sch
     ? `$(gear~spin) ${fullMsg}; checking Schematron.`
     : `$(${icon}) ${fullMsg}.`
+}
+
+/**
+ * Scans the full XML document text and returns every xml:id value found.
+ * Supports both double-quoted and single-quoted attribute values.
+ * Used to provide IDREF completion suggestions (TEI convention: resp="#someId").
+ */
+export function collectXmlIds(documentText: string): string[] {
+  const ids: string[] = [];
+  const idPattern = /xml:id\s*=\s*(?:"([^"]+)"|'([^']+)')/g;
+  let match: RegExpExecArray | null;
+  while ((match = idPattern.exec(documentText)) !== null) {
+    const id = match[1] ?? match[2];
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
+  }
+  return ids;
 }
