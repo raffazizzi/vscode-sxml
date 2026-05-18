@@ -3,20 +3,21 @@ import * as url from "url";
 import { window } from "vscode";
 import { NodePath, XPathStep } from "./types";
 
-export function normalizeSchemaUrl(schemaURL: string): string {
+export function normalizeSchemaUrl(schemaURL: string, baseUri?: string): string {
   try {
     new URL(schemaURL);
     return schemaURL;
   } catch (error) {
     const schemaPath = path.parse(schemaURL);
-    const activeEditor = window.activeTextEditor;
     // Determine if local path.
     if (schemaPath.root !== "") {
       return url.pathToFileURL(schemaURL).toString();
     } else {
       // NOT a full URL, treat as relative path
-      const basePath = activeEditor?.document.uri.fsPath.split(/[\\/]/).slice(0, -1).join("/");
-      return url.pathToFileURL(basePath + "/" + schemaURL).toString();
+      const basePath = baseUri
+        ? path.dirname(url.fileURLToPath(baseUri))
+        : window.activeTextEditor?.document.uri.fsPath.split(/[\\/]/).slice(0, -1).join("/");
+      return url.pathToFileURL(path.join(basePath ?? ".", schemaURL)).toString();
     }
   }
 }

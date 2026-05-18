@@ -8,7 +8,7 @@
 		"strict": true,
 		"rootDir": "src",
 		"skipLibCheck": true,
-		"types": ["node"]
+		"types": ["node", "mocha"]
 	},
 	"exclude": ["node_modules", ".vscode-test"]
 }

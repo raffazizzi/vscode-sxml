@@ -65,8 +65,11 @@ function validateWithSchema(
 
   // Add an abort listener
   signal.addEventListener('abort', () => {
-    parser.close(); // Stop the parser
-    throw new Error('AbortError');
+    try {
+      parser.close();
+    } catch {
+      // Parser may throw if aborted before any content was written
+    }
   });
 
   let error = NO_ERR;

@@ -25,7 +25,7 @@ if (hasXmlModel && !schemaURLMatch) {
 }
   if (!schemaURL) return undefined;
 
-  const schema = schemaURL && normalizeSchemaUrl(schemaURL);
+  const schema = schemaURL && normalizeSchemaUrl(schemaURL, document.uri.toString());
 
   return schema;
 }
@@ -42,7 +42,7 @@ export async function locateSchematron(document: TextDocument, rngURI?: string):
 
   if (!schematronURL) return Promise.resolve();
 
-  let uri = schematronURL && normalizeSchemaUrl(schematronURL);
+  let uri = schematronURL && normalizeSchemaUrl(schematronURL, document.uri.toString());
 
   // Determine if schematron is embedded, otherwise fetch it and return its contents.
   let rawText: undefined | string;
