@@ -1,11 +1,12 @@
-import { suggestAttValue, translateCursor, wrapWithEl, formatXml } from "./commands";
+import { suggestAttValue, translateCursor, wrapWithEl } from "./commands";
 import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
 import { XMLDocumentManager } from "./core/XMLDocumentManager";
 import { validateDocument, validateWithSchematron } from "./services/validate";
 import { commands, languages, window, workspace } from "vscode";
 
-import type { DiagnosticCollection, ExtensionContext, TextDocument, TextDocumentChangeEvent, TextEditor } from "vscode";
+import type { DiagnosticCollection, DocumentSelector, ExtensionContext, TextDocument, TextDocumentChangeEvent, TextEditor } from "vscode";
 import SalveCompletionProvider from "./services/suggest";
+import TEIXMLFormatterProvider from "./services/format";
 
 // Use Maps to hold a manager and a validator for each open XML document
 const documentManagers = new Map<string, XMLDocumentManager>();
@@ -139,6 +140,11 @@ export function activate(context: ExtensionContext) {
   // Get supported languages from settings:
   const supportedLangs: string[] = workspace.getConfiguration("sxml").get("languagesToCheck") ?? ["xml"];
 
+  // Set up formatter
+  let formatter = new TEIXMLFormatterProvider;
+	let selector: DocumentSelector = { scheme: 'file', language: 'xml' };
+	const formatRegister = languages.registerDocumentFormattingEditProvider(selector, formatter);
+
   // DIAGNOSTICS
   diagnosticCollection = languages.createDiagnosticCollection("xml-validation");
   context.subscriptions.push(diagnosticCollection);
@@ -179,7 +185,7 @@ export function activate(context: ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(validateCommand, suggestAttValue, translateCursor, wrapWithEl, formatXml);  
+  context.subscriptions.push(formatRegister, validateCommand, suggestAttValue, translateCursor, wrapWithEl);  
   // Kick off on activation.
   commands.executeCommand("sxml.validate");
 

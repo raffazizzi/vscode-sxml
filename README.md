@@ -84,6 +84,10 @@ Select some text and wrap it in a tag using Ctrl+e or by bringing up the Command
 
 ![Demo showing wrapping text with element](https://github.com/raffazizzi/vscode-sxml/raw/main/images/rm-wrap.gif)
 
+### Format XML document (alpha)
+
+Scholarly XML includes an [XML formatter](https://www.npmjs.com/package/tei-xml-fmt) to pretty-print your documents. You can access it by using VS Code's [Format Document](https://code.visualstudio.com/docs/editing/codebasics#_formatting) command.
+
 ## Change log
 
 You can read the change log [here](https://github.com/raffazizzi/vscode-sxml/blob/master/CHANGELOG.md).
