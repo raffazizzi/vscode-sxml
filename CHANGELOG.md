@@ -59,3 +59,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Better positioning of error ranges. 
+
+
+## [0.5.0]
+
+### Added
+
+- Suggestions now provide IDREF and xsd:anyURI recommendations for IDs in the same document
+- XML Formatter
+- Unit tests
+
+### Fixed
+
+- Associated local RNG schemas now reload on change.
+- Better feedback when RelaxNG file isn't correctly associated
