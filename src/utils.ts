@@ -28,6 +28,8 @@ export function truncate(str: string, n: number){
 
 export function parseXPath(xpath: string): XPathStep[] {
   const steps: XPathStep[] = [];
+  // "/" on its own is the document node, e.g. from a Schematron rule with context="/". It has no steps.
+  if (xpath === "/") return steps;
   let pos = 0;
   while (pos < xpath.length) {
     if (xpath[pos] !== '/') {

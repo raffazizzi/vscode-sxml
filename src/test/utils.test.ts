@@ -46,6 +46,18 @@ suite("utils.ts", () => {
     test("unterminated namespace throws", () => {
       assert.throws(() => parseXPath("/Q{http://example.com"), /Unterminated namespace/);
     });
+    test("unterminated index throws", () => {
+      assert.throws(() => parseXPath("/Q{}root[1"), /Unterminated index/);
+    });
+    // SaxonJS reports a Schematron rule with context="/" as the bare string "/".
+    test("document node '/' returns no steps", () => {
+      assert.deepStrictEqual(parseXPath("/"), []);
+    });
+    test("step without an explicit index defaults to 1", () => {
+      const steps = parseXPath("/Q{}root");
+      assert.strictEqual(steps.length, 1);
+      assert.strictEqual(steps[0].index, 1);
+    });
   });
 
   suite("matchPath", () => {

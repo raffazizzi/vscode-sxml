@@ -19,6 +19,12 @@ export interface GrammarStore {
   [key: string]: StoredGrammar;
 }
 
+// A single <?xml-model?> processing instruction, with its pseudo-attributes parsed out.
+export type XmlModelPI = {
+  href?: string;
+  schematypens?: string;
+};
+
 // XPath notation returned by node-xsl-schematron is in Clark notation.
 export type ClarkName = { namespace: string; local: string };
 

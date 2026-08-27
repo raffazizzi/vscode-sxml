@@ -6,6 +6,10 @@ export const NO_ERR = 'NO_ERR';
 export const XINCLUDE_NS = 'http://www.w3.org/2001/XInclude';
 export const XINCLUDE_LOCAL = 'include';
 
+// schematypens values for telling RELAX NG and Schematron <?xml-model?> associations apart
+export const RELAXNG_NS = 'http://relaxng.org/ns/structure/1.0';
+export const SCHEMATRON_NS = 'http://purl.oclc.org/dsdl/schematron';
+
 export enum CompletionRequest {
   TAG = 'TAG',
   ATT = 'ATT',

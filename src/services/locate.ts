@@ -1,8 +1,30 @@
 import { normalizeSchemaUrl } from "../utils";
+import { RELAXNG_NS, SCHEMATRON_NS } from "../constants";
 import { Uri, window, workspace } from "vscode";
 
-import type { StoredSchematron } from "../types";
+import type { StoredSchematron, XmlModelPI } from "../types";
 import type { TextDocument } from "vscode";
+
+const XML_MODEL_PI = /<\?xml-model\s[\s\S]*?\?>/g;
+
+// Read one pseudo-attribute out of a single PI. Values may be quoted either way
+function pseudoAtt(pi: string, name: string): string | undefined {
+  const match = pi.match(new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)')`));
+  return match ? (match[2] ?? match[3]) : undefined;
+}
+
+// Parses every <?xml-model?> PI in the document into its pseudo-attributes
+export function parseXmlModelPIs(fileText: string): XmlModelPI[] {
+  return (fileText.match(XML_MODEL_PI) ?? []).map((pi) => ({
+    href: pseudoAtt(pi, "href"),
+    schematypens: pseudoAtt(pi, "schematypens"),
+  }));
+}
+
+function findAssociation(fileText: string, schematypens: string): XmlModelPI | undefined {
+  const pis = parseXmlModelPIs(fileText).filter((pi) => pi.schematypens === schematypens);
+  return pis.find((pi) => pi.href) ?? pis[0];
+}
 
 export function locateSchema(document: TextDocument): string | undefined {
   const fileText = document.getText();
@@ -11,18 +33,15 @@ export function locateSchema(document: TextDocument): string | undefined {
 
   let schemaURL = defaultSchemas?.[extKey];
 
-  const schemaURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0"/s)
-    ?? fileText.match(/<\?xml-model.+?schematypens="http:\/\/relaxng.org\/ns\/structure\/1.0".+?href="([^"]+)"/s);
+  const association = findAssociation(fileText, RELAXNG_NS);
 
-  if (schemaURLMatch) schemaURL = schemaURLMatch[1];
-//this function gets the full text of xml file, then searches for the model and href in it. 
-//if it finds it returns otherwise it returns undefined. 
-//adding a check between that checks did we find the model line? if yes but no href warn the user
-const hasXmlModel = fileText.match(/<\?xml-model/);
-if (hasXmlModel && !schemaURLMatch) {
-  console.log("Found xml-model but no href!");
-  window.showInformationMessage("Schema not associated correctly — make sure you're using href= in your <?xml-model?>");
-}
+  if (association?.href) {
+    schemaURL = association.href;
+  } else if (association) {
+    console.log("Found xml-model but no href!");
+    window.showInformationMessage("Schema not associated correctly — make sure you're using href= in your <?xml-model?>");
+  }
+
   if (!schemaURL) return undefined;
 
   const schema = schemaURL && normalizeSchemaUrl(schemaURL, document.uri.toString());
@@ -33,12 +52,7 @@ if (hasXmlModel && !schemaURLMatch) {
 export async function locateSchematron(document: TextDocument, rngURI?: string): Promise<void | StoredSchematron> {
   const fileText = document.getText();
 
-  let schematronURL: string | undefined;
-
-  const schematronURLMatch = fileText.match(/<\?xml-model.*?href="([^"]+)".+?schematypens="http:\/\/purl.oclc.org\/dsdl\/schematron"/s)
-    ?? fileText.match(/<\?xml-model.+?schematypens="http:\/\/purl.oclc.org\/dsdl\/schematron".+?href="([^"]+)"/s);
-
-  if (schematronURLMatch) schematronURL = schematronURLMatch[1];
+  const schematronURL = findAssociation(fileText, SCHEMATRON_NS)?.href;
 
   if (!schematronURL) return Promise.resolve();
 

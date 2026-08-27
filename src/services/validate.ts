@@ -359,36 +359,41 @@ export async function validateWithSchematron(manager: XMLDocumentManager, signal
     });
 
     worker.on('message', async (result) => {
-      if (result.error) {
-        // only report to user if error is not because of xml parsing (well-formedness)
-        if (result.errorName !== "XError") {
-          console.error('Schematron validation failed:', result.error);
-          window.showInformationMessage("Schematron validation failed.");
+      try {
+        if (result.error) {
+          // only report to user if error is not because of xml parsing (well-formedness)
+          if (result.errorName !== "XError") {
+            console.error('Schematron validation failed:', result.error);
+            window.showInformationMessage("Schematron validation failed.");
+          }
+          resolve(void 0);
+          return;
         }
-        resolve(void 0);
-        return;
-      }
 
-      const errors = result.errors;
-      const diagnostics: Diagnostic[] = [];
-      const errorCount = errors ? errors.length : 0;
+        const errors = result.errors;
+        const diagnostics: Diagnostic[] = [];
+        const errorCount = errors ? errors.length : 0;
 
-      if (errors) {
-        for (const err of errors) {
-          const errLoc = await locateSchErrInXML(xmlSource, err.location);
-          if (errLoc) {
-            const [startLine, startColumn, endLine, endColumn] = errLoc;
-            const errorRange = new Range(startLine, startColumn, endLine, endColumn);
-            diagnostics.push(new Diagnostic(errorRange, err.text));
+        if (errors) {
+          for (const err of errors) {
+            const errLoc = await locateSchErrInXML(xmlSource, err.location);
+            if (errLoc) {
+              const [startLine, startColumn, endLine, endColumn] = errLoc;
+              const errorRange = new Range(startLine, startColumn, endLine, endColumn);
+              diagnostics.push(new Diagnostic(errorRange, err.text));
+            }
           }
         }
-      }
 
-      resolve({
-        errorType: ERR_SCH,
-        errorCount,
-        diagnostics
-      });
+        resolve({
+          errorType: ERR_SCH,
+          errorCount,
+          diagnostics
+        });
+      } catch (error) {
+        console.error('Could not map Schematron results to the document:', error);
+        resolve(void 0);
+      }
     });
 
     worker.on('error', (error) => {
@@ -455,6 +460,17 @@ async function locateSchErrInXML(xml: string, xpath: string): Promise<[number, n
 
       const index = parentSiblings?.[key] ?? 1;
       pathStack.push({ ns, local: local || "", index });
+
+      if (steps.length === 0) {
+        // Document-node location ("/"): anchor on the root element
+        if (tagStartPos && currentTagName) {
+          found = true;
+          const startLine = tagStartPos.line;
+          const startCol = tagStartPos.column;
+          resolve([startLine, startCol, startLine, startCol + currentTagName.length]);
+        }
+        return;
+      }
 
       const lastStep = steps[steps.length - 1];
 

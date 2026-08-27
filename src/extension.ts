@@ -114,8 +114,12 @@ async function validate(document: TextDocument) {
         console.log(`Validation for ${uri} was aborted.`);
     }
   } finally {
-    // Once done (or aborted), remove the controller from the map.
-    validationControllers.delete(uri);
+    // Once done (or aborted), remove the controller from the map, but only if
+    // it is still the one previously active. An aborted run finishes after its successor has already
+    // registered, and must not evict the newer controller.
+    if (validationControllers.get(uri) === controller) {
+      validationControllers.delete(uri);
+    }
   }
 }
 
