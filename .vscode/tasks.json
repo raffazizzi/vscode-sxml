@@ -6,10 +6,27 @@
 		{
 			"type": "npm",
 			"script": "webpack",
-			"problemMatcher": "$tsc-watch",
-			"isBackground": true,
+			"problemMatcher": {
+				"owner": "webpack-ts",
+				"source": "ts-loader",
+				"fileLocation": "absolute",
+				"pattern": [
+					{
+						"regexp": "^\\[tsl\\] (ERROR|WARNING) in (.*)\\((\\d+),(\\d+)\\)$",
+						"severity": 1,
+						"file": 2,
+						"line": 3,
+						"column": 4
+					},
+					{
+						"regexp": "^\\s*(TS\\d+):\\s*(.*)$",
+						"code": 1,
+						"message": 2
+					}
+				]
+			},
 			"presentation": {
-				"reveal": "never"
+				"reveal": "silent"
 			},
 			"group": {
 				"kind": "build",
