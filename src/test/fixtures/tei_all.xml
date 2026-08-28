@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-model
-  href="tei_all.rng"
+  href="https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_all.rng"
   schematypens="http://relaxng.org/ns/structure/1.0"
+  type="application/xml"?>
+<?xml-model
+  href="https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_all.rng"
+  schematypens="http://purl.oclc.org/dsdl/schematron"
   type="application/xml"?>
 <TEI xmlns="http://www.tei-c.org/ns/1.0">
         <teiHeader>
