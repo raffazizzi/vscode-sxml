@@ -17,3 +17,13 @@ node_modules
 
 # vscode
 .vscode-test/
+
+# Packages
+*.vsix
+
+# Ignore all .md files
+*.md
+
+# Exceptions: Do NOT ignore these specific files
+!README.md
+!CHANGELOG.md

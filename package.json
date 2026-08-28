@@ -3,7 +3,7 @@
 	"displayName": "Scholarly XML",
 	"publisher": "raffazizzi",
 	"description": "XML validator (RELAX NG and Schematron) and autocomplete with features typically needed by academic encoding projects.",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"engines": {
 		"vscode": "^1.86.0"
 	},
@@ -134,7 +134,7 @@
 		"@vscode/test-cli": "^0.0.15",
 		"@vscode/test-electron": "^3.1.0",
 		"ts-loader": "^9.6.2",
-		"typescript": "^7.0.2",
+		"typescript": "~5.4.5",
 		"webpack": "^5.110.1",
 		"webpack-cli": "^7.2.3",
 		"xregexp": "~4.3.0"

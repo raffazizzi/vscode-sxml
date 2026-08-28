@@ -10,3 +10,5 @@ src/**
 **/*.ts
 webpack.config.js
 node_modules
+*.md
+docs

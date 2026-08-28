@@ -1,14 +1,15 @@
 {
-	"compilerOptions": {
-		"module": "commonjs",
-		"target": "es2020",
-		"lib": ["es2020", "dom"],
-		"outDir": "out",
-		"sourceMap": true,
-		"strict": true,
-		"rootDir": "src",
-		"skipLibCheck": true,
-		"types": ["node", "mocha"]
-	},
-	"exclude": ["node_modules", ".vscode-test"]
+  "compilerOptions": {
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "target": "es2020",
+    "lib": ["es2020", "dom"],
+    "outDir": "out",
+    "sourceMap": true,
+    "strict": true,
+    "rootDir": "src",
+    "skipLibCheck": true,
+    "types": ["node", "mocha"]
+  },
+  "exclude": ["node_modules", ".vscode-test"]
 }
