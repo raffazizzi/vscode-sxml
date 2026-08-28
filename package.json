@@ -129,14 +129,14 @@
 	},
 	"devDependencies": {
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^25.9.0",
-		"@types/vscode": "^1.120.0",
-		"@vscode/test-cli": "^0.0.12",
-		"@vscode/test-electron": "^2.5.2",
-		"ts-loader": "^9.5.7",
-		"typescript": "^6.0.3",
-		"webpack": "^5.106.2",
-		"webpack-cli": "^7.0.2",
+		"@types/node": "^26.4.0",
+		"@types/vscode": "^1.134.0",
+		"@vscode/test-cli": "^0.0.15",
+		"@vscode/test-electron": "^3.1.0",
+		"ts-loader": "^9.6.2",
+		"typescript": "^7.0.2",
+		"webpack": "^5.110.1",
+		"webpack-cli": "^7.2.3",
 		"xregexp": "4.3.0"
 	},
 	"dependencies": {
