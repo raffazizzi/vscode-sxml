@@ -73,3 +73,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Associated local RNG schemas now reload on change.
 - Better feedback when RelaxNG file isn't correctly associated
+
+## [0.5.1]
+
+### Fixed
+
+- Schema association now reads each `<?xml-model?>` separately, so documents with several PIs pick the right RELAX NG and Schematron files regardless of the order of the pseudo-attributes or the quotes used.
+- Schematron errors reported on the document node are now anchored to the root element instead of being dropped.
+- Schematron results that can't be matched back to the document no longer interrupt validation.
+- A validation run that gets aborted by a newer one no longer cancels the newer run.
+
+### Changed
+
+- Lowered the minimum supported VS Code version to 1.86 to cover more installations.
+- Updated dependencies.
