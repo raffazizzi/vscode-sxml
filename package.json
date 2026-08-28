@@ -5,7 +5,7 @@
 	"description": "XML validator (RELAX NG and Schematron) and autocomplete with features typically needed by academic encoding projects.",
 	"version": "0.5.0",
 	"engines": {
-		"vscode": "^1.120.0"
+		"vscode": "^1.86.0"
 	},
 	"icon": "images/sxml_logo.png",
 	"categories": [
@@ -130,14 +130,14 @@
 	"devDependencies": {
 		"@types/mocha": "^10.0.10",
 		"@types/node": "^26.4.0",
-		"@types/vscode": "^1.134.0",
+		"@types/vscode": "~1.86.0",
 		"@vscode/test-cli": "^0.0.15",
 		"@vscode/test-electron": "^3.1.0",
 		"ts-loader": "^9.6.2",
 		"typescript": "^7.0.2",
 		"webpack": "^5.110.1",
 		"webpack-cli": "^7.2.3",
-		"xregexp": "4.3.0"
+		"xregexp": "~4.3.0"
 	},
 	"dependencies": {
 		"node-xsl-schematron": "^1.1.0",
