@@ -1,4 +1,9 @@
-import { suggestAttValue, translateCursor, wrapWithEl } from "./commands";
+import {
+  suggestAttValue,
+  translateCursor,
+  wrapWithEl,
+  deleteTag,
+} from "./commands";
 import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
 import { XMLDocumentManager } from "./core/XMLDocumentManager";
 import { validateDocument, validateWithSchematron } from "./services/validate";
@@ -251,6 +256,7 @@ export function activate(context: ExtensionContext) {
     suggestAttValue,
     translateCursor,
     wrapWithEl,
+    deleteTag,
   );
   // Kick off on activation.
   commands.executeCommand("sxml.validate");

@@ -16,7 +16,11 @@ const tagNamePattern = new RegExp(`[${nameStart}][${nameChars}]*`, "uy");
 const wordPattern = new RegExp(`[${nameChars}]+`, "u");
 
 // A '>' in an attribute value or DOCTYPE subset doesn't end the tag.
-function markupEnd(text: string, start: number, declaration = false): number {
+export function markupEnd(
+  text: string,
+  start: number,
+  declaration = false,
+): number {
   let quote = "";
   let brackets = 0;
   for (let i = start; i < text.length; i++) {
