@@ -176,7 +176,10 @@ export function activate(context: ExtensionContext) {
 
   // Set up formatter
   let formatter = new TEIXMLFormatterProvider();
-  let selector: DocumentSelector = { scheme: "file", language: "xml" };
+  let selector: DocumentSelector = [
+    { scheme: "file", language: "xml" },
+    { scheme: "file", language: "odd" },
+  ];
   const formatRegister = languages.registerDocumentFormattingEditProvider(
     selector,
     formatter,
