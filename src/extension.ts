@@ -3,6 +3,9 @@ import {
   translateCursor,
   wrapWithEl,
   deleteTag,
+  expandSelection,
+  splitElement,
+  insertForeign,
 } from "./commands";
 import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
 import { XMLDocumentManager } from "./core/XMLDocumentManager";
@@ -257,6 +260,9 @@ export function activate(context: ExtensionContext) {
     translateCursor,
     wrapWithEl,
     deleteTag,
+    expandSelection,
+    splitElement,
+    insertForeign,
   );
   // Kick off on activation.
   commands.executeCommand("sxml.validate");

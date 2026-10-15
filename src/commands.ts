@@ -1,7 +1,9 @@
 import { XMLname } from "./constants";
-import { commands, Range, Selection, window } from "vscode";
+import { commands, Range, Selection, SnippetString, window} from "vscode";
 import { Formatter, FormatterError } from "tei-xml-fmt";
 import { findTagPair, markupEnd } from "./services/autorename";
+import { findParentElement, findSplitElement } from "./services/selection";
+
 
 export const suggestAttValue = commands.registerTextEditorCommand(
   "sxml.suggestAttValue",
@@ -75,3 +77,41 @@ export const deleteTag = commands.registerTextEditorCommand(
     );
   },
 );
+
+export const expandSelection = commands.registerTextEditorCommand(
+    "sxml.expandSelection",
+    (editor) => {
+      const doc = editor.document;
+      const text = doc.getText();
+      editor.selections = editor.selections.map((sel) => {
+        const range = findParentElement(
+          text,
+          doc.offsetAt(sel.start),
+          doc.offsetAt(sel.end),
+        );
+        return range
+          ? new Selection(doc.positionAt(range[0]), doc.positionAt(range[1]))
+          : sel;
+      });
+    },
+  );
+
+  export const splitElement = commands.registerTextEditorCommand(
+  "sxml.splitElement",
+  (editor) => {
+    const doc = editor.document;
+    const pos = editor.selection.active;
+    const name = findSplitElement(doc.getText(), doc.offsetAt(pos));
+    if (!name) return;
+    editor.edit((b) => b.insert(pos, `</${name}><${name}>`));
+  },
+);
+
+export const insertForeign = commands.registerTextEditorCommand(
+    "sxml.insertForeign",
+    (editor) => {
+      editor.insertSnippet(
+        new SnippetString("<foreign>${0:$TM_SELECTED_TEXT}</foreign>"),
+      );
+    },
+  );
