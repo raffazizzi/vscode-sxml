@@ -52,7 +52,12 @@
 				"command": "sxml.wrapWithEl",
 				"title": "Wrap selection with element",
 				"category": "Scholarly XML"
-			}
+			},
+			{
+			"command": "sxml.deleteTag",
+			"title": "Delete tag around current node",
+			"category": "Scholarly XML"
+		}
 		],
 		"keybindings": [
 			{
@@ -63,7 +68,13 @@
 			{
 				"key": "cmd+e",
 				"command": "sxml.wrapWithEl"
-			}
+			},
+			{
+			"key": "ctrl+alt+x",
+			"mac": "cmd+alt+x",
+			"command": "sxml.deleteTag",
+			"when": "editorTextFocus"
+		}
 		],
 		"configuration": [
 			{

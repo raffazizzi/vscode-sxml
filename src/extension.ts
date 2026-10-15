@@ -1,12 +1,25 @@
-import { suggestAttValue, translateCursor, wrapWithEl } from "./commands";
+import {
+  suggestAttValue,
+  translateCursor,
+  wrapWithEl,
+  deleteTag,
+} from "./commands";
 import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
 import { XMLDocumentManager } from "./core/XMLDocumentManager";
 import { validateDocument, validateWithSchematron } from "./services/validate";
 import { commands, languages, window, workspace } from "vscode";
 
-import type { DiagnosticCollection, DocumentSelector, ExtensionContext, TextDocument, TextDocumentChangeEvent, TextEditor } from "vscode";
+import type {
+  DiagnosticCollection,
+  DocumentSelector,
+  ExtensionContext,
+  TextDocument,
+  TextDocumentChangeEvent,
+  TextEditor,
+} from "vscode";
 import SalveCompletionProvider from "./services/suggest";
 import TEIXMLFormatterProvider from "./services/format";
+import AutoRenameProvider from "./services/autorename";
 
 // Use Maps to hold a manager and a validator for each open XML document
 const documentManagers = new Map<string, XMLDocumentManager>();
@@ -15,16 +28,16 @@ const validationControllers = new Map<string, AbortController>();
 let diagnosticCollection: DiagnosticCollection;
 
 async function getManager(document: TextDocument): Promise<XMLDocumentManager> {
-    const uri = document.uri.toString();
+  const uri = document.uri.toString();
 
-    if (!documentManagers.has(uri)) {
-      const newManager = new XMLDocumentManager()
-      documentManagers.set(uri, newManager);
-    }
+  if (!documentManagers.has(uri)) {
+    const newManager = new XMLDocumentManager();
+    documentManagers.set(uri, newManager);
+  }
 
-    const dm = documentManagers.get(uri)!;
-    await dm.updateDocument(document);
-    return dm;
+  const dm = documentManagers.get(uri)!;
+  await dm.updateDocument(document);
+  return dm;
 }
 
 function makeStatusMsg(msg: string, icon: string, sch = false, tail?: string) {
@@ -59,18 +72,17 @@ async function validate(document: TextDocument) {
 
     // If the signal was not aborted, update the UI.
     if (!controller.signal.aborted) {
-
       let msg = "";
       let tail;
       let icon = "error";
       if (validationResult) {
         // Update status
         switch (validationResult.errorType) {
-          case ERR_VALID: 
+          case ERR_VALID:
             msg = `XML is not valid`;
             tail = `Found ${validationResult.errorCount} errors`;
             break;
-          case ERR_WELLFORM: 
+          case ERR_WELLFORM:
             msg = "XML is not well formed";
             break;
           case ERR_SCHEMA:
@@ -80,26 +92,40 @@ async function validate(document: TextDocument) {
             msg = "XML is valid";
             icon = "check";
         }
-        window.setStatusBarMessage(makeStatusMsg(msg, icon, Boolean(hasSch), tail));
+        window.setStatusBarMessage(
+          makeStatusMsg(msg, icon, Boolean(hasSch), tail),
+        );
         diagnosticCollection.set(document.uri, validationResult.diagnostics);
       }
 
       // Perform schematron validation only after reporting on RNG validation, because it's slower.
       if (hasSch) {
-        const schValidationResult = await validateWithSchematron(manager, controller.signal);
+        const schValidationResult = await validateWithSchematron(
+          manager,
+          controller.signal,
+        );
         if (schValidationResult && schValidationResult.errorCount > 0) {
-
           // join schema and schematron diagnostics.
-          const diagnostics = ((validationResult && validationResult.diagnostics) || [])
-            .concat((schValidationResult && schValidationResult.diagnostics) || []);
+          const diagnostics = (
+            (validationResult && validationResult.diagnostics) ||
+            []
+          ).concat(
+            (schValidationResult && schValidationResult.diagnostics) || [],
+          );
 
           // report
           diagnosticCollection.set(document.uri, diagnostics);
 
-          const totalErrors = schValidationResult.errorCount + ((validationResult && validationResult.errorCount) || 0)
+          const totalErrors =
+            schValidationResult.errorCount +
+            ((validationResult && validationResult.errorCount) || 0);
 
           // update status
-          const newMsg = makeStatusMsg("XML is not valid after Schematron validation.", "error", false);
+          const newMsg = makeStatusMsg(
+            "XML is not valid after Schematron validation.",
+            "error",
+            false,
+          );
 
           window.setStatusBarMessage(`${newMsg} Found ${totalErrors} errors.`);
         } else if (validationResult) {
@@ -107,11 +133,10 @@ async function validate(document: TextDocument) {
         }
       }
     }
-
   } catch (error) {
     // Handle cancellation errors if the service throws them
     if ((error as Error).name === "AbortError") {
-        console.log(`Validation for ${uri} was aborted.`);
+      console.log(`Validation for ${uri} was aborted.`);
     }
   } finally {
     // Once done (or aborted), remove the controller from the map, but only if
@@ -123,49 +148,79 @@ async function validate(document: TextDocument) {
   }
 }
 
-export const validateCommand = commands.registerTextEditorCommand("sxml.validate", async () => {
-  const {activeTextEditor} = window; // Get current editor
-  const supportedLangs: string[] = workspace.getConfiguration("sxml").get("languagesToCheck") ?? ["xml"];
-  
-  if (activeTextEditor && supportedLangs.includes(activeTextEditor.document.languageId)) {
-    validate(activeTextEditor.document);
-  }
-});
+export const validateCommand = commands.registerTextEditorCommand(
+  "sxml.validate",
+  async () => {
+    const { activeTextEditor } = window; // Get current editor
+    const supportedLangs: string[] = workspace
+      .getConfiguration("sxml")
+      .get("languagesToCheck") ?? ["xml"];
+
+    if (
+      activeTextEditor &&
+      supportedLangs.includes(activeTextEditor.document.languageId)
+    ) {
+      validate(activeTextEditor.document);
+    }
+  },
+);
 
 // ACTIVATE
 export function activate(context: ExtensionContext) {
   console.log(`Extension "Scholarly XML" is now active.`);
-  
+
   // Track last keystroke time
   let lastKeystroke = Date.now();
   let checkTimer: NodeJS.Timeout | undefined = undefined;
   const typeDelay = 500;
 
   // Get supported languages from settings:
-  const supportedLangs: string[] = workspace.getConfiguration("sxml").get("languagesToCheck") ?? ["xml"];
+  const supportedLangs: string[] = workspace
+    .getConfiguration("sxml")
+    .get("languagesToCheck") ?? ["xml"];
 
   // Set up formatter
-  let formatter = new TEIXMLFormatterProvider;
-	let selector: DocumentSelector = { scheme: 'file', language: 'xml' };
-	const formatRegister = languages.registerDocumentFormattingEditProvider(selector, formatter);
+  let formatter = new TEIXMLFormatterProvider();
+  let selector: DocumentSelector = [
+    { scheme: "file", language: "xml" },
+    { scheme: "file", language: "odd" },
+  ];
+  const formatRegister = languages.registerDocumentFormattingEditProvider(
+    selector,
+    formatter,
+  );
+  const rename = languages.registerLinkedEditingRangeProvider(
+    selector,
+    new AutoRenameProvider(),
+  );
 
   // DIAGNOSTICS
   diagnosticCollection = languages.createDiagnosticCollection("xml-validation");
   context.subscriptions.push(diagnosticCollection);
 
   // COMPLETIONS PROVIDER
-  languages.registerCompletionItemProvider(supportedLangs, new SalveCompletionProvider(getManager), '<', ' ', '"', '#')
+  languages.registerCompletionItemProvider(
+    supportedLangs,
+    new SalveCompletionProvider(getManager),
+    "<",
+    " ",
+    '"',
+    "#",
+  );
 
   // EVENTS
   workspace.onDidChangeTextDocument((event: TextDocumentChangeEvent) => {
-    if (supportedLangs.includes(event.document.languageId) && event.document.uri.scheme === "file") {
+    if (
+      supportedLangs.includes(event.document.languageId) &&
+      event.document.uri.scheme === "file"
+    ) {
       lastKeystroke = Date.now();
 
       // Clear existing timer
       if (checkTimer) {
         clearTimeout(checkTimer);
       }
-      
+
       // Set up check for typing pause
       checkTimer = setTimeout(() => {
         const timeSinceLastKeystroke = Date.now() - lastKeystroke;
@@ -184,12 +239,25 @@ export function activate(context: ExtensionContext) {
   // Clear status after changing file or trigger validation if new file is XML.
   window.onDidChangeActiveTextEditor(async (editor: TextEditor | undefined) => {
     window.setStatusBarMessage("");
-    if (editor && editor.document && supportedLangs.includes(editor.document.languageId) && editor.document.uri.scheme === "file") {
+    if (
+      editor &&
+      editor.document &&
+      supportedLangs.includes(editor.document.languageId) &&
+      editor.document.uri.scheme === "file"
+    ) {
       validate(editor.document);
     }
   });
 
-  context.subscriptions.push(formatRegister, validateCommand, suggestAttValue, translateCursor, wrapWithEl);  
+  context.subscriptions.push(
+    formatRegister,
+    rename,
+    validateCommand,
+    suggestAttValue,
+    translateCursor,
+    wrapWithEl,
+    deleteTag,
+  );
   // Kick off on activation.
   commands.executeCommand("sxml.validate");
 
