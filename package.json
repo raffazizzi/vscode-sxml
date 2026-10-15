@@ -54,10 +54,10 @@
 				"category": "Scholarly XML"
 			},
 			{
-			"command": "sxml.deleteTag",
-			"title": "Delete tag around current node",
-			"category": "Scholarly XML"
-		}
+				"command": "sxml.deleteTag",
+				"title": "Delete tag around current node",
+				"category": "Scholarly XML"
+			}
 		],
 		"keybindings": [
 			{
@@ -160,12 +160,11 @@
 		"ts-loader": "^9.6.2",
 		"typescript": "~5.4.5",
 		"webpack": "^5.111.1",
-		"webpack-cli": "^7.2.3",
-		"xregexp": "~4.3.0"
+		"webpack-cli": "^7.2.3"
 	},
 	"dependencies": {
 		"node-xsl-schematron": "^1.1.0",
-		"salve-annos": "^1.2.4",
+		"salve-annos": "^1.2.5",
 		"saxes": "^6.0.0",
 		"tei-xml-fmt": "^1.0.4"
 	},
