@@ -52,7 +52,27 @@
 				"command": "sxml.wrapWithEl",
 				"title": "Wrap selection with element",
 				"category": "Scholarly XML"
-			}
+			},
+			{
+			"command": "sxml.deleteTag",
+			"title": "Delete tag around current node",
+			"category": "Scholarly XML"
+		},
+		{
+  	"command": "sxml.expandSelection",
+  	"title": "Expand selection to parent element",
+  	"category": "Scholarly XML"
+  },
+	{
+	"command": "sxml.splitElement",
+	"title": "Split current element at cursor position",
+	"category": "Scholarly XML"
+},
+{
+	"command": "sxml.insertForeign",
+	"title": "Insert foreign",
+	"category": "Scholarly XML"
+}
 		],
 		"keybindings": [
 			{
@@ -63,7 +83,31 @@
 			{
 				"key": "cmd+e",
 				"command": "sxml.wrapWithEl"
-			}
+			},
+			{
+			"key": "ctrl+alt+x",
+			"mac": "cmd+alt+x",
+			"command": "sxml.deleteTag",
+			"when": "editorTextFocus"
+		},
+		{
+  	"key": "ctrl+alt+e",
+  	"mac": "ctrl+cmd+e",
+  	"command": "sxml.expandSelection",
+  	"when": "editorTextFocus"
+  },
+	{
+	"key": "ctrl+alt+d",
+	"mac": "cmd+shift+d",
+	"command": "sxml.splitElement",
+	"when": "editorTextFocus"
+},
+{
+	"key": "ctrl+shift+f",
+	"mac": "cmd+shift+f",
+	"command": "sxml.insertForeign",
+	"when": "editorTextFocus"
+}
 		],
 		"configuration": [
 			{
