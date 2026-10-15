@@ -11,9 +11,9 @@ import { nameStart, nameChars } from "../constants";
 type TagName = { name: string; start: number; end: number };
 export type TagPair = [TagName, TagName];
 
-// XML NameStartChar and NameChar ranges.
-const tagNamePattern = new RegExp(`[${nameStart}][${nameChars}]*`, "uy");
-const wordPattern = new RegExp(`[${nameChars}]+`, "u");
+// Deliberately looser than constants.ts's XMLname
+const tagNamePattern = new RegExp(`[:${nameStart}][:${nameChars}]*`, "uy");
+const wordPattern = new RegExp(`[:${nameChars}]+`, "u");
 
 // A '>' in an attribute value or DOCTYPE subset doesn't end the tag.
 export function markupEnd(

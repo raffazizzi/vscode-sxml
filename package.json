@@ -63,18 +63,20 @@
 			{
 				"key": "ctrl+e",
 				"mac": "cmd+e",
-				"command": "sxml.wrapWithEl"
+				"command": "sxml.wrapWithEl",
+				"when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
 			},
 			{
 				"key": "cmd+e",
-				"command": "sxml.wrapWithEl"
+				"command": "sxml.wrapWithEl",
+				"when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
 			},
 			{
-			"key": "ctrl+alt+x",
-			"mac": "cmd+alt+x",
-			"command": "sxml.deleteTag",
-			"when": "editorTextFocus"
-		}
+				"key": "ctrl+alt+x",
+				"mac": "cmd+alt+x",
+				"command": "sxml.deleteTag",
+				"when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
+			}
 		],
 		"configuration": [
 			{
@@ -125,17 +127,28 @@
 					}
 				}
 			}
-		]
+		],
+		"configurationDefaults": {
+			"[xml]": {
+				"editor.linkedEditing": true
+			},
+			"[odd]": {
+				"editor.linkedEditing": true
+			},
+			"[pretext]": {
+				"editor.linkedEditing": true
+			}
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "webpack --mode production",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
+		"compile": "tsc -p ./ --noEmit",
+		"watch": "tsc -watch -p ./ --noEmit",
 		"webpack": "webpack --mode development",
 		"webpack-dev": "webpack --mode development --watch",
-		"compile-tests": "tsc -p . --outDir out",
-		"watch-tests": "tsc -p . -w --outDir out",
-		"pretest": "npm run compile-tests && npm run compile",
+		"compile-tests": "tsc -p tsconfig.test.json",
+		"watch-tests": "tsc -p tsconfig.test.json -w",
+		"pretest": "npm run compile-tests",
 		"test": "vscode-test"
 	},
 	"devDependencies": {

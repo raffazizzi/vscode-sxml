@@ -1,0 +1,10 @@
+// Test build only.
+// Mocha runs out/ directly, so the test build emits CommonJS instead.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "node16",
+    "moduleResolution": "node16",
+    "outDir": "out"
+  }
+}

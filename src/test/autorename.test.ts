@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import { findTagPair } from "../services/autorename";
+import { XMLname } from "../constants";
 
 suite("findTagPair", () => {
   test("finds the pair when the cursor is in the opening tag name", () => {
@@ -57,5 +58,26 @@ suite("findTagPair", () => {
   test("returns undefined when the cursor is in text content", () => {
     const text = "<a>text</a>";
     assert.strictEqual(findTagPair(text, text.indexOf("text")), undefined);
+  });
+});
+
+suite("XMLname (QName)", () => {
+  const ok = ["note", "tei:note", "xml:id", "_x", "a-b", "\u540D\u524D"];
+  const no = ["a:b:c", ":lead", "note:", "tei::note", "tei:1bad", "1bad", "", "a b"];
+  test("accepts a name or a single prefix", () =>
+    ok.forEach((n) => assert.ok(XMLname.test(n), n)));
+  test("rejects malformed prefixes", () =>
+    no.forEach((n) => assert.ok(!XMLname.test(n), n)));
+});
+
+suite("the scanner is looser than XMLname on purpose", () => {
+  // A strict QName here would make findTagPair bail on <a:b:c> and kill linked
+  // editing for the rest of the document.
+  test("pairs a malformed QName that XMLname rejects", () => {
+    const text = "<a:b:c>x</a:b:c>";
+    const pair = findTagPair(text, 2);
+    assert.ok(pair);
+    assert.strictEqual(pair[0].name, "a:b:c");
+    assert.ok(!XMLname.test("a:b:c"));
   });
 });

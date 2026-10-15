@@ -184,6 +184,7 @@ export function activate(context: ExtensionContext) {
   let selector: DocumentSelector = [
     { scheme: "file", language: "xml" },
     { scheme: "file", language: "odd" },
+    { scheme: "file", language: "pretext" },
   ];
   const formatRegister = languages.registerDocumentFormattingEditProvider(
     selector,

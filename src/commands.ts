@@ -39,7 +39,7 @@ export const wrapWithEl = commands.registerTextEditorCommand(
             if (text.match(XMLname)) {
               return null;
             }
-            return "Must be an XML Name";
+            return "Must be an XML name, optionally prefixed";
           },
         })
         .then((t) => {
