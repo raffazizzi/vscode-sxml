@@ -153,13 +153,13 @@
 	},
 	"devDependencies": {
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^26.4.0",
+		"@types/node": "^26.6.5",
 		"@types/vscode": "~1.86.0",
 		"@vscode/test-cli": "^0.0.15",
 		"@vscode/test-electron": "^3.1.0",
 		"ts-loader": "^9.6.2",
 		"typescript": "~5.4.5",
-		"webpack": "^5.110.1",
+		"webpack": "^5.111.1",
 		"webpack-cli": "^7.2.3",
 		"xregexp": "~4.3.0"
 	},
@@ -171,6 +171,6 @@
 	},
 	"overrides": {
 		"diff": "^9.0.0",
-		"serialize-javascript": "^7.0.5"
+		"serialize-javascript": "^7.1.2"
 	}
 }

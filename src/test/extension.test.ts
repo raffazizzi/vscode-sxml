@@ -62,11 +62,8 @@ suite("Scholarly XML Test Suite", async () => {
 		await vscode.commands.executeCommand("sxml.validate").then( async () => {			
 			const ctx = context;
 			const diagnostics = ctx.subscriptions[0] as vscode.DiagnosticCollection;
-			// wait for large file and schema to be loaded.
-			await sleep(4000);
 			// expect errors
-			const d = diagnostics.get(uri);
-			assert.ok(d);
+			const d = await waitForDiagnostics(diagnostics, uri);
 			assert.ok(d.length > 0);
 		});
 	}).timeout(30000);
@@ -76,4 +73,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => {
     setTimeout(resolve, ms);
   });
+}
+
+// sxml.validate does not await validation, and the TEI schema is fetched over the
+// network and compiled by salve, so there is no fixed delay that is both fast and
+// reliable. Poll until diagnostics land, and fail with a useful message if they don't.
+async function waitForDiagnostics(
+  diagnostics: vscode.DiagnosticCollection,
+  uri: vscode.Uri,
+  timeoutMs = 25000,
+): Promise<readonly vscode.Diagnostic[]> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const d = diagnostics.get(uri);
+    if (d && d.length > 0) {
+      return d;
+    }
+    await sleep(250);
+  }
+  throw new Error(
+    `no diagnostics reported for ${uri.fsPath} within ${timeoutMs}ms`
+  );
 }
