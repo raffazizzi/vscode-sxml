@@ -4,7 +4,12 @@ import {
   wrapWithEl,
   deleteTag,
 } from "./commands";
-import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
+import {
+  ERR_SCHEMA,
+  ERR_VALID,
+  ERR_WELLFORM,
+  SUPPORTED_SCHEMES,
+} from "./constants";
 import { XMLDocumentManager } from "./core/XMLDocumentManager";
 import { validateDocument, validateWithSchematron } from "./services/validate";
 import { commands, languages, window, workspace } from "vscode";
@@ -183,11 +188,9 @@ export function activate(context: ExtensionContext) {
 
   // Set up formatter
   let formatter = new TEIXMLFormatterProvider();
-  let selector: DocumentSelector = [
-    { scheme: "file", language: "xml" },
-    { scheme: "file", language: "odd" },
-    { scheme: "file", language: "pretext" },
-  ];
+  let selector: DocumentSelector = SUPPORTED_SCHEMES.flatMap((scheme) =>
+    ["xml", "odd", "pretext"].map((language) => ({ scheme, language })),
+  );
   const formatRegister = languages.registerDocumentFormattingEditProvider(
     selector,
     formatter,
@@ -215,7 +218,7 @@ export function activate(context: ExtensionContext) {
   workspace.onDidChangeTextDocument((event: TextDocumentChangeEvent) => {
     if (
       supportedLangs.includes(event.document.languageId) &&
-      event.document.uri.scheme === "file"
+      SUPPORTED_SCHEMES.includes(event.document.uri.scheme)
     ) {
       lastKeystroke = Date.now();
 
@@ -246,7 +249,7 @@ export function activate(context: ExtensionContext) {
       editor &&
       editor.document &&
       supportedLangs.includes(editor.document.languageId) &&
-      editor.document.uri.scheme === "file"
+      SUPPORTED_SCHEMES.includes(editor.document.uri.scheme)
     ) {
       validate(editor.document);
     }
