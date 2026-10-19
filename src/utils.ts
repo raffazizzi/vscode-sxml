@@ -1,25 +1,36 @@
-import * as path from "path";
-import * as url from "url";
-import { window } from "vscode";
+import { Uri, window } from "vscode";
 import { NodePath, XPathStep } from "./types";
 
 export function normalizeSchemaUrl(schemaURL: string, baseUri?: string): string {
   try {
-    new URL(schemaURL);
-    return schemaURL;
-  } catch (error) {
-    const schemaPath = path.parse(schemaURL);
-    // Determine if local path.
-    if (schemaPath.root !== "") {
-      return url.pathToFileURL(schemaURL).toString();
-    } else {
-      // NOT a full URL, treat as relative path
-      const basePath = baseUri
-        ? path.dirname(url.fileURLToPath(baseUri))
-        : window.activeTextEditor?.document.uri.fsPath.split(/[\\/]/).slice(0, -1).join("/");
-      return url.pathToFileURL(path.join(basePath ?? ".", schemaURL)).toString();
+    const parsed = new URL(schemaURL);
+    if (parsed.protocol.length > 2 && schemaURL.includes("://")) {
+      return schemaURL;
+    }
+  } catch {
+    // Not a full URL with protocol
+  }
+
+  // Absolute local file path (UNIX or Windows)
+  if (schemaURL.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(schemaURL)) {
+    return Uri.file(schemaURL).toString();
+  }
+
+  // Treat as relative path
+  if (baseUri) {
+    try {
+      const base = Uri.parse(baseUri);
+      return Uri.joinPath(base, "..", schemaURL).toString();
+    } catch {
+      // fallback
     }
   }
+
+  if (window.activeTextEditor?.document.uri) {
+    return Uri.joinPath(window.activeTextEditor.document.uri, "..", schemaURL).toString();
+  }
+
+  return schemaURL;
 }
 
 export function truncate(str: string, n: number){

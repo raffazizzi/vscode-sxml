@@ -20,6 +20,7 @@ import type {
 import SalveCompletionProvider from "./services/suggest";
 import TEIXMLFormatterProvider from "./services/format";
 import AutoRenameProvider from "./services/autorename";
+import { initSchematronRunner } from "./services/schematronRunner";
 
 // Use Maps to hold a manager and a validator for each open XML document
 const documentManagers = new Map<string, XMLDocumentManager>();
@@ -168,6 +169,7 @@ export const validateCommand = commands.registerTextEditorCommand(
 // ACTIVATE
 export function activate(context: ExtensionContext) {
   console.log(`Extension "Scholarly XML" is now active.`);
+  initSchematronRunner(context.extensionUri);
 
   // Track last keystroke time
   let lastKeystroke = Date.now();

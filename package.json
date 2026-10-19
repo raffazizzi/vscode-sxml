@@ -37,6 +37,13 @@
 		"onLanguage:odd"
 	],
 	"main": "./dist/extension.js",
+	"browser": "./dist/web/extension.js",
+	"capabilities": {
+		"virtualWorkspaces": true,
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
 	"contributes": {
 		"commands": [
 			{
@@ -149,7 +156,9 @@
 		"compile-tests": "tsc -p tsconfig.test.json",
 		"watch-tests": "tsc -p tsconfig.test.json -w",
 		"pretest": "npm run compile-tests",
-		"test": "vscode-test"
+		"test": "vscode-test",
+		"test-web": "vscode-test-web --browserType=none --extensionDevelopmentPath=.",
+		"open-in-browser": "vscode-test-web --extensionDevelopmentPath=. ."
 	},
 	"devDependencies": {
 		"@types/mocha": "^10.0.10",
@@ -157,8 +166,14 @@
 		"@types/vscode": "~1.86.0",
 		"@vscode/test-cli": "^0.0.15",
 		"@vscode/test-electron": "^3.1.0",
+		"@vscode/test-web": "^0.0.81",
+		"buffer": "^6.0.3",
+		"path-browserify": "^1.0.1",
+		"process": "^0.11.10",
+		"stream-browserify": "^3.0.0",
 		"ts-loader": "^9.6.2",
 		"typescript": "~5.4.5",
+		"util": "^0.12.5",
 		"webpack": "^5.111.1",
 		"webpack-cli": "^7.2.3"
 	},
