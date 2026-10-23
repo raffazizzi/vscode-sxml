@@ -1,6 +1,7 @@
 import { locateSchema, locateSchematron } from "../services/locate";
 import { resolveXIncludes } from "../services/xinclude";
 import { convertRNGToPattern, DefaultNameResolver } from "salve-annos";
+import { createResourceLoader } from "../services/resourceLoader";
 import { SaxesParser } from "saxes";
 import { window } from "vscode";
 
@@ -27,8 +28,10 @@ export class XMLDocumentManager {
   private async grammarFromSource(rngSource: string): Promise<[Grammar, string] | void> {
     const schemaURL = new URL(rngSource);
     try {
-      const s = await convertRNGToPattern(schemaURL);
-      return [s.pattern, s.schemaText]
+      const s = await convertRNGToPattern(schemaURL, {
+        resourceLoader: createResourceLoader()
+      } as any);
+      return [s.pattern, s.schemaText];
     } catch(err) {
       console.log(err);
       window.showInformationMessage("Could not parse RelaxNG schema.");

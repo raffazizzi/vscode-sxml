@@ -1,9 +1,7 @@
 import { ERR_SCH, ERR_VALID, ERR_WELLFORM, NO_ERR } from "../constants";
 import { SaxesParser } from "saxes";
 import { Diagnostic, Range, window, workspace } from "vscode";
-import { Worker } from 'worker_threads';
-import { join, basename } from 'path';
-import { URL } from 'url';
+import { runSchematron } from "./schematronRunner";
 
 import type { XMLDocumentManager } from "../core/XMLDocumentManager";
 import type { ValidationResult, TagInfo, XIncludeLocation, NodePath } from "../types";
@@ -99,7 +97,8 @@ function validateWithSchema(
       if (nestedIncludeStack.length > 0) {
         xiURI = nestedIncludeStack[nestedIncludeStack.length - 1];
       }
-      const uriToShow = basename(new URL(xiURI).pathname || "");
+      const pathname = new URL(xiURI).pathname || "";
+      const uriToShow = pathname.split("/").pop() || xiURI;
       message = `${uriToShow}: ${msg}`;
       const document = workspace.textDocuments.find(doc => doc.uri.toString() === docUri);
       if (document) {
@@ -336,72 +335,48 @@ export async function validateWithSchematron(manager: XMLDocumentManager, signal
 
   const sch = await manager.getSchematron();
 
-  if (!sch) return;
+  if (!sch || !sch.rawText) return;
 
   const xmlSource = await manager.documentText;
 
-  return new Promise((resolve) => {
-    const worker = new Worker(
-      join(__dirname, './schematronWorker.js'),
-      {
-        workerData: {
-          xmlSource,
-          schematronSource: sch.rawText,
-          embedded: sch.embedded
-        }
-      }
-    );
-
-    // Handle abortion
-    signal.addEventListener('abort', () => {
-      worker.terminate();
-      resolve(void 0);
-    });
-
-    worker.on('message', async (result) => {
-      try {
-        if (result.error) {
-          // only report to user if error is not because of xml parsing (well-formedness)
-          if (result.errorName !== "XError") {
-            console.error('Schematron validation failed:', result.error);
-            window.showInformationMessage("Schematron validation failed.");
-          }
-          resolve(void 0);
-          return;
-        }
-
-        const errors = result.errors;
-        const diagnostics: Diagnostic[] = [];
-        const errorCount = errors ? errors.length : 0;
-
-        if (errors) {
-          for (const err of errors) {
-            const errLoc = await locateSchErrInXML(xmlSource, err.location);
-            if (errLoc) {
-              const [startLine, startColumn, endLine, endColumn] = errLoc;
-              const errorRange = new Range(startLine, startColumn, endLine, endColumn);
-              diagnostics.push(new Diagnostic(errorRange, err.text));
-            }
-          }
-        }
-
-        resolve({
-          errorType: ERR_SCH,
-          errorCount,
-          diagnostics
-        });
-      } catch (error) {
-        console.error('Could not map Schematron results to the document:', error);
-        resolve(void 0);
-      }
-    });
-
-    worker.on('error', (error) => {
-      console.error('Worker error:', error);
-      window.showInformationMessage("Schematron validation failed.");
-      resolve(void 0);
-    });
+  const result = await runSchematron({
+    xmlSource,
+    schematronSource: sch.rawText,
+    embedded: sch.embedded ?? false,
+    signal
   });
+
+  if (signal.aborted) return;
+
+  if (result.error) {
+    // only report to user if error is not because of xml parsing (well-formedness)
+    if (result.errorName !== "XError") {
+      console.error('Schematron validation failed:', result.error);
+      window.showInformationMessage("Schematron validation failed.");
+    }
+    return;
+  }
+
+  const errors = result.errors;
+  const diagnostics: Diagnostic[] = [];
+  const errorCount = errors ? errors.length : 0;
+
+  if (errors) {
+    for (const err of errors) {
+      const errLoc = await locateSchErrInXML(xmlSource, err.location);
+      if (errLoc) {
+        const [startLine, startColumn, endLine, endColumn] = errLoc;
+        const errorRange = new Range(startLine, startColumn, endLine, endColumn);
+        diagnostics.push(new Diagnostic(errorRange, err.text));
+      }
+    }
+  }
+
+  return {
+    errorType: ERR_SCH,
+    errorCount,
+    diagnostics
+  };
 }
 
 async function locateSchErrInXML(xml: string, xpath: string): Promise<[number, number, number, number] | null> {

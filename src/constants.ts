@@ -27,3 +27,8 @@ export const XMLname = new RegExp(
   `^[${nameStart}][${nameChars}]*(?::[${nameStart}][${nameChars}]*)?$`,
   "u",
 );
+
+// URI schemes of editable documents: "file" on desktop, "vscode-vfs" on
+// github.dev / vscode.dev, "vscode-test-web" under @vscode/test-web.
+// Read-only views such as "git:" diffs are deliberately left out.
+export const SUPPORTED_SCHEMES = ["file", "vscode-vfs", "vscode-test-web"];
