@@ -1,5 +1,6 @@
 import { ERR_SCH, ERR_VALID, ERR_WELLFORM, NO_ERR } from "../constants";
 import { SaxesParser } from "saxes";
+import { findMalformedEntity } from "./entities";
 import { Diagnostic, Range, window, workspace } from "vscode";
 import { Worker } from 'worker_threads';
 import { join, basename } from 'path';
@@ -18,6 +19,21 @@ import { matchPath, parseXPath } from "../utils";
 
 export async function validateDocument(manager: XMLDocumentManager, signal: AbortSignal): Promise<ValidationResult | void> {
   if (signal.aborted) return;
+
+  // Use the editor text: resolved XIncludes can change line and column offsets.
+  const source = manager.sourceText;
+  const entity = findMalformedEntity(source);
+  if (entity) {
+    const lines = source.slice(0, entity.start).split(/\r\n|\r|\n/);
+    const line = lines.length - 1;
+    const column = lines[line].length;
+    const range = new Range(line, column, line, column + entity.end - entity.start);
+    return {
+      errorType: ERR_WELLFORM,
+      errorCount: 1,
+      diagnostics: [new Diagnostic(range, "Malformed entity reference. Use &name;, &#123;, or &#x1F600;. For a literal &, use &amp;.")]
+    };
+  }
 
   const grammar = await manager.getGrammar();
   const docUri = manager.uri;

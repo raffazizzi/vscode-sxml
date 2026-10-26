@@ -13,6 +13,7 @@ export class XMLDocumentManager {
   private storedGrammar: StoredGrammar = {};
   private storedSchematron: StoredSchematron = {};
   public documentText: string = "";
+  public sourceText: string = "";
   public uri?: Uri;
   public parser?: SaxesParser;
   public nameResolver?: DefaultNameResolver;
@@ -20,7 +21,8 @@ export class XMLDocumentManager {
   private async setFullDocumentText() {
     // resolve XIncludes (NB the function checks settings to decide whether to actually resolve or not).
     if (this.document) {
-      this.documentText = await resolveXIncludes(this.document.getText());
+      this.sourceText = this.document.getText();
+      this.documentText = await resolveXIncludes(this.sourceText);
     }
   }
 

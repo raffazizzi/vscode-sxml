@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Malformed entity references in the edited XML document are highlighted at their source instead of a later semicolon or the end of the document.
+
 ## [0.1.0]
 
 ### Added
