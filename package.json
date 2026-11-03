@@ -1,175 +1,208 @@
 {
-	"name": "sxml",
-	"displayName": "Scholarly XML",
-	"publisher": "raffazizzi",
-	"description": "XML validator (RELAX NG and Schematron) and autocomplete with features typically needed by academic encoding projects.",
-	"version": "0.5.1",
-	"engines": {
-		"vscode": "^1.86.0"
-	},
-	"icon": "images/sxml_logo.png",
-	"categories": [
-		"Linters",
-		"Education",
-		"Other"
-	],
-	"keywords": [
-		"XML",
-		"RELAX NG",
-		"schematron",
-		"text encoding",
-		"text encoding initiative",
-		"PreTeXt",
-		"digital humanities",
-		"music encoding",
-		"music encoding initiative",
-		"ODD",
-		"TEI",
-		"MEI"
-	],
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/raffazizzi/vscode-sxml"
-	},
-	"activationEvents": [
-		"onLanguage:xml",
-		"onLanguage:pretext",
-		"onLanguage:odd"
-	],
-	"main": "./dist/extension.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "sxml.validate",
-				"title": "Validate XML with associated RELAX NG schema.",
-				"category": "Scholarly XML",
-				"icon": {
-					"dark": "images/sxml_logo.svg",
-					"light": "images/sxml_logo.svg"
-				}
-			},
-			{
-				"command": "sxml.wrapWithEl",
-				"title": "Wrap selection with element",
-				"category": "Scholarly XML"
-			},
-			{
-				"command": "sxml.deleteTag",
-				"title": "Delete tag around current node",
-				"category": "Scholarly XML"
-			}
-		],
-		"keybindings": [
-			{
-				"key": "ctrl+e",
-				"mac": "cmd+e",
-				"command": "sxml.wrapWithEl",
-				"when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
-			},
-			{
-				"key": "cmd+e",
-				"command": "sxml.wrapWithEl",
-				"when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
-			},
-			{
-				"key": "ctrl+alt+x",
-				"mac": "cmd+alt+x",
-				"command": "sxml.deleteTag",
-				"when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
-			}
-		],
-		"configuration": [
-			{
-				"title": "Scholarly XML",
-				"properties": {
-					"sxml.languagesToCheck": {
-						"type": "array",
-						"items": {
-							"type": "string"
-						},
-						"default": [
-							"xml",
-							"pretext"
-						],
-						"description": "Specify any additional languages on which Scholarly XML should activate."
-					},
-					"sxml.defaultSchemas": {
-						"type": "object",
-						"additionalProperties": {
-							"type": "string"
-						},
-						"default": {
-							"ptx": "https://raw.githubusercontent.com/PreTeXtBook/pretext/master/schema/pretext.rng",
-							"odd": "https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_odds.rng"
-						},
-						"markdownDescription": "Dictionary of `\"language\": \"schema\"` to use as the default RELAX NG schema for files with that language or extension."
-					},
-					"sxml.xincludeSupport": {
-						"type": "boolean",
-						"additionalProperties": {
-							"type": "string"
-						},
-						"default": true,
-						"markdownDescription": "Toggle support for XInclude processing. If enabled, XIncludes will be resolved before validation and completion."
-					},
-					"sxml.xincludeDepth": {
-						"type": "number",
-						"default": 50,
-						"markdownDescription": "Maximum depth level for XInclude processing."
-					},
-					"sxml.schematronSupport": {
-						"type": "boolean",
-						"additionalProperties": {
-							"type": "string"
-						},
-						"default": true,
-						"markdownDescription": "Toggle support for Schematron validation."
-					}
-				}
-			}
-		],
-		"configurationDefaults": {
-			"[xml]": {
-				"editor.linkedEditing": true
-			},
-			"[odd]": {
-				"editor.linkedEditing": true
-			},
-			"[pretext]": {
-				"editor.linkedEditing": true
-			}
-		}
-	},
-	"scripts": {
-		"vscode:prepublish": "webpack --mode production",
-		"compile": "tsc -p ./ --noEmit",
-		"watch": "tsc -watch -p ./ --noEmit",
-		"webpack": "webpack --mode development",
-		"webpack-dev": "webpack --mode development --watch",
-		"compile-tests": "tsc -p tsconfig.test.json",
-		"watch-tests": "tsc -p tsconfig.test.json -w",
-		"pretest": "npm run compile-tests",
-		"test": "vscode-test"
-	},
-	"devDependencies": {
-		"@types/mocha": "^10.0.10",
-		"@types/node": "^26.6.5",
-		"@types/vscode": "~1.86.0",
-		"@vscode/test-cli": "^0.0.15",
-		"@vscode/test-electron": "^3.1.0",
-		"ts-loader": "^9.6.2",
-		"typescript": "~5.4.5",
-		"webpack": "^5.111.1",
-		"webpack-cli": "^7.2.3"
-	},
-	"dependencies": {
-		"node-xsl-schematron": "^1.1.0",
-		"salve-annos": "^1.2.5",
-		"saxes": "^6.0.0",
-		"tei-xml-fmt": "^1.1.0"
-	},
-	"overrides": {
-		"diff": "^9.0.0",
-		"serialize-javascript": "^7.1.2"
-	}
+  "name": "sxml",
+  "displayName": "Scholarly XML",
+  "publisher": "raffazizzi",
+  "description": "XML validator (RELAX NG and Schematron) and autocomplete with features typically needed by academic encoding projects.",
+  "version": "0.5.1",
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "icon": "images/sxml_logo.png",
+  "categories": [
+    "Linters",
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "XML",
+    "RELAX NG",
+    "schematron",
+    "text encoding",
+    "text encoding initiative",
+    "PreTeXt",
+    "digital humanities",
+    "music encoding",
+    "music encoding initiative",
+    "ODD",
+    "TEI",
+    "MEI"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/raffazizzi/vscode-sxml"
+  },
+  "activationEvents": [
+    "onLanguage:xml",
+    "onLanguage:pretext",
+    "onLanguage:odd"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sxml.validate",
+        "title": "Validate XML with associated RELAX NG schema.",
+        "category": "Scholarly XML",
+        "icon": {
+          "dark": "images/sxml_logo.svg",
+          "light": "images/sxml_logo.svg"
+        }
+      },
+      {
+        "command": "sxml.wrapWithEl",
+        "title": "Wrap selection with element",
+        "category": "Scholarly XML"
+      },
+      {
+        "command": "sxml.deleteTag",
+        "title": "Delete tag around current node",
+        "category": "Scholarly XML"
+      },
+      {
+        "command": "sxml.expandSelection",
+        "title": "Expand selection to parent element",
+        "category": "Scholarly XML"
+      },
+      {
+        "command": "sxml.splitElement",
+        "title": "Split current element at cursor position",
+        "category": "Scholarly XML"
+      },
+      {
+        "command": "sxml.insertForeign",
+        "title": "Insert foreign",
+        "category": "Scholarly XML"
+      }
+    ],
+    "keybindings": [
+      {
+        "key": "ctrl+e",
+        "mac": "cmd+e",
+        "command": "sxml.wrapWithEl",
+        "when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
+      },
+      {
+        "key": "cmd+e",
+        "command": "sxml.wrapWithEl",
+        "when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
+      },
+      {
+        "key": "ctrl+alt+x",
+        "mac": "cmd+alt+x",
+        "command": "sxml.deleteTag",
+        "when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
+      },
+      {
+        "key": "ctrl+alt+e",
+        "mac": "ctrl+cmd+e",
+        "command": "sxml.expandSelection",
+        "when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
+      },
+      {
+        "key": "ctrl+alt+d",
+        "mac": "cmd+shift+d",
+        "command": "sxml.splitElement",
+        "when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
+      },
+      {
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "command": "sxml.insertForeign",
+        "when": "editorTextFocus && (editorLangId == xml || editorLangId == odd || editorLangId == pretext)"
+      }
+    ],
+    "configuration": [
+      {
+        "title": "Scholarly XML",
+        "properties": {
+          "sxml.languagesToCheck": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "xml",
+              "pretext"
+            ],
+            "description": "Specify any additional languages on which Scholarly XML should activate."
+          },
+          "sxml.defaultSchemas": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {
+              "ptx": "https://raw.githubusercontent.com/PreTeXtBook/pretext/master/schema/pretext.rng",
+              "odd": "https://vault.tei-c.org/P5/current/xml/tei/custom/schema/relaxng/tei_odds.rng"
+            },
+            "markdownDescription": "Dictionary of `\"language\": \"schema\"` to use as the default RELAX NG schema for files with that language or extension."
+          },
+          "sxml.xincludeSupport": {
+            "type": "boolean",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": true,
+            "markdownDescription": "Toggle support for XInclude processing. If enabled, XIncludes will be resolved before validation and completion."
+          },
+          "sxml.xincludeDepth": {
+            "type": "number",
+            "default": 50,
+            "markdownDescription": "Maximum depth level for XInclude processing."
+          },
+          "sxml.schematronSupport": {
+            "type": "boolean",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": true,
+            "markdownDescription": "Toggle support for Schematron validation."
+          }
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[xml]": {
+        "editor.linkedEditing": true
+      },
+      "[odd]": {
+        "editor.linkedEditing": true
+      },
+      "[pretext]": {
+        "editor.linkedEditing": true
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "webpack --mode production",
+    "compile": "tsc -p ./ --noEmit",
+    "watch": "tsc -watch -p ./ --noEmit",
+    "webpack": "webpack --mode development",
+    "webpack-dev": "webpack --mode development --watch",
+    "compile-tests": "tsc -p tsconfig.test.json",
+    "watch-tests": "tsc -p tsconfig.test.json -w",
+    "pretest": "npm run compile-tests",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.5",
+    "@types/vscode": "~1.86.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "ts-loader": "^9.6.2",
+    "typescript": "~5.4.5",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^7.2.3"
+  },
+  "dependencies": {
+    "node-xsl-schematron": "^1.1.0",
+    "salve-annos": "^1.2.5",
+    "saxes": "^6.0.0",
+    "tei-xml-fmt": "^1.1.0"
+  },
+  "overrides": {
+    "diff": "^9.0.0",
+    "serialize-javascript": "^7.1.2"
+  }
 }
