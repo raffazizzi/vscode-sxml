@@ -7,64 +7,104 @@ import type { NSDef } from "../types";
 import type { EnterStartTagEvent } from "salve-annos";
 import type { Ref } from "salve-annos/lib/salve/patterns";
 import type { SaxesTag, SaxesAttributeNS, SaxesAttributePlain } from "saxes";
-import type {TextDocument, Position, CancellationToken, CompletionContext, CompletionItemProvider} from "vscode";
+import type {
+  TextDocument,
+  Position,
+  CancellationToken,
+  CompletionContext,
+  CompletionItemProvider,
+} from "vscode";
 
 export class SalveCompletionProvider implements CompletionItemProvider {
-  private getManagerForDocument: (document: TextDocument) => Promise<XMLDocumentManager>;
+  private getManagerForDocument: (
+    document: TextDocument,
+  ) => Promise<XMLDocumentManager>;
 
-  constructor(getManagerForDocument: (document: TextDocument) => Promise<XMLDocumentManager>) {
+  constructor(
+    getManagerForDocument: (
+      document: TextDocument,
+    ) => Promise<XMLDocumentManager>,
+  ) {
     this.getManagerForDocument = getManagerForDocument;
   }
-  
+
   public provideCompletionItems(
-    document: TextDocument, position: Position,
-    token: CancellationToken, context: CompletionContext
+    document: TextDocument,
+    position: Position,
+    token: CancellationToken,
+    context: CompletionContext,
   ): Promise<CompletionItem[]> {
+    const line = document.lineAt(position.line).text;
+    const lineUntil = line.substring(0, position.character);
+    const offset = document.offsetAt(position);
+    const textUntil = document.getText().substring(0, offset);
 
-      const line = document.lineAt(position.line).text;
-      const lineUntil = line.substring(0, position.character);
-      const offset = document.offsetAt(position);
-      const textUntil = document.getText().substring(0, offset);
+    let request = CompletionRequest.TAG;
 
-      let request = CompletionRequest.TAG;
-
-      if (context.triggerCharacter === " ") {
-        if (textUntil.match(/<[^>]+$/)) {
-          request = CompletionRequest.ATT;
-        } else {
-          // abort
-          return Promise.resolve([]);
-        }
-      } else if (context.triggerCharacter === `"`) {
-        if (lineUntil.match(/="$/)) {
-          request = CompletionRequest.VAL;
-        } else {
-          // abort
-          return Promise.resolve([]);
-        }
-      } else if (context.triggerCharacter === "#") {
-        // User typed # inside an attribute value — suggest xml:id references
-        if (lineUntil.match(/="#$/)) {
-          return Promise.resolve(this.getIdRefCompletions(document));
-        } else {
-          return Promise.resolve([]);
-        }
-      } else if (context.triggerKind === 0) {
-        // Manually invoked (Ctrl+Space)
-        // Check if cursor is inside an attribute value that starts with "#"
-        if (lineUntil.match(/="#[^"]*$/)) {
-          return Promise.resolve(this.getIdRefCompletions(document));
-        } else if (lineUntil.match(/="\s*$/)) {
-          request = CompletionRequest.VAL;
-        } else if (textUntil.match(/<[^>]+$/)) {
-          request = CompletionRequest.ATT;
-        } else {
-          // abort
-          return Promise.resolve([]);
-        }
+    if (context.triggerCharacter === " ") {
+      if (textUntil.match(/<[^>]+$/)) {
+        request = CompletionRequest.ATT;
+      } else {
+        // abort
+        return Promise.resolve([]);
       }
-      
-      return this.getCompletions(document, position, offset, request);
+    } else if (context.triggerCharacter === `"`) {
+      if (lineUntil.match(/="$/)) {
+        request = CompletionRequest.VAL;
+      } else {
+        // abort
+        return Promise.resolve([]);
+      }
+    } else if (context.triggerCharacter === "#") {
+      // User typed # inside an attribute value — suggest xml:id references
+      if (lineUntil.match(/="#$/)) {
+        return Promise.resolve(this.getIdRefCompletions(document));
+      } else {
+        return Promise.resolve([]);
+      }
+    } else if (context.triggerKind === 0) {
+      // Manually invoked (Ctrl+Space)
+      // Check if cursor is inside an attribute value that starts with "#"
+      if (lineUntil.match(/="#[^"]*$/)) {
+        return Promise.resolve(this.getIdRefCompletions(document));
+      } else if (lineUntil.match(/="\s*$/)) {
+        request = CompletionRequest.VAL;
+      } else if (textUntil.match(/<[^>]+$/)) {
+        request = CompletionRequest.ATT;
+      } else {
+        // abort
+        return Promise.resolve([]);
+      }
+    }
+
+    return this.getCompletions(document, position, offset, request);
+  }
+
+  /**
+   * Names of the elements the schema allows at the given position.
+   * Used by the wrap command. Simulates typing "<" at that position.
+   */
+  public async getElementNamesAt(
+    document: TextDocument,
+    position: Position,
+  ): Promise<string[]> {
+    const offset = document.offsetAt(position);
+    const items = await this.getCompletions(
+      document,
+      position,
+      offset + 1,
+      CompletionRequest.TAG,
+      offset,
+    );
+    const names = items
+      .map(
+        (i) =>
+          (typeof i.label === "string" ? i.label : i.label.label).split(
+            " ",
+          )[0] ?? "",
+      )
+      .filter((n) => n);
+    return Array.from(new Set(names));
   }
 
   /**
@@ -73,7 +113,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
    */
   private getIdRefCompletions(document: TextDocument): CompletionItem[] {
     const ids = collectXmlIds(document.getText());
-    return ids.map(id => {
+    return ids.map((id) => {
       const ci = new CompletionItem(`#${id}`, 24);
       ci.insertText = `#${id}`;
       ci.detail = "xml:id reference";
@@ -84,10 +124,22 @@ export class SalveCompletionProvider implements CompletionItemProvider {
     });
   }
 
-  private async getCompletions(document: TextDocument, position: Position, offset: number, request: string): Promise<CompletionItem[]> {
+  private async getCompletions(
+    document: TextDocument,
+    position: Position,
+    offset: number,
+    request: string,
+    markerAt?: number,
+  ): Promise<CompletionItem[]> {
     const documentManager = await this.getManagerForDocument(document);
     const grammar = documentManager.getCachedGrammar();
-    const {documentText, parser, nameResolver} = documentManager;
+    const { parser, nameResolver } = documentManager;
+    let documentText = documentManager.documentText;
+    if (markerAt !== undefined) {
+      // Simulate typing "<" at this offset, so the TAG logic runs as if the user had typed it.
+      documentText =
+        documentText.slice(0, markerAt) + "<" + documentText.slice(markerAt);
+    }
 
     if (!grammar || !nameResolver || !parser) return [];
 
@@ -104,11 +156,9 @@ export class SalveCompletionProvider implements CompletionItemProvider {
     const showElementSuggestion = (node: SaxesTag) => {
       if (!node && !sawRoot) {
         // Suggest valid start elements
-        const start = <Ref> grammar.start;
+        const start = <Ref>grammar.start;
         const startEl = start.element.name.toJSON().name;
-        items.push(
-          new CompletionItem(startEl, 24)
-        );
+        items.push(new CompletionItem(startEl, 24));
       } else {
         // TODO: Occasionally we get duplicated here from possible(). Why?
         // For now, weed out dupes.
@@ -118,22 +168,25 @@ export class SalveCompletionProvider implements CompletionItemProvider {
           if (entry.name === "enterStartTag") {
             const name = entry.namePattern.toJSON().name;
             const ns = entry.namePattern.toJSON().ns;
-            const dupes = els.filter(e => {
-              return e.namePattern.toJSON().name === name && e.namePattern.toJSON().ns === ns;
+            const dupes = els.filter((e) => {
+              return (
+                e.namePattern.toJSON().name === name &&
+                e.namePattern.toJSON().ns === ns
+              );
             });
             if (dupes.length === 0) {
               els.push(entry);
-            }          
+            }
           }
         }
-        els.forEach(entry => {
+        els.forEach((entry) => {
           if (entry.name === "enterStartTag") {
             const tag = entry.namePattern.toJSON();
             let prefix = "";
             let xmlns = "";
             let diffNs = "";
             if (tag.ns) {
-              const ns = nsDefinitions.filter(ns => ns.value === tag.ns)[0];            
+              const ns = nsDefinitions.filter((ns) => ns.value === tag.ns)[0];
               if (ns) {
                 // Only show ns if different from parent.
                 if (tag.ns !== node.uri) {
@@ -142,9 +195,10 @@ export class SalveCompletionProvider implements CompletionItemProvider {
                 }
               } else {
                 nsDefinitions.push({
-                  prefix: "", 
+                  prefix: "",
                   value: tag.ns,
-                  generated: true});
+                  generated: true,
+                });
                 diffNs = ` ${tag.ns}`;
                 xmlns = ` xmlns="${tag.ns}"`;
               }
@@ -161,20 +215,24 @@ export class SalveCompletionProvider implements CompletionItemProvider {
             items.push(ci);
           }
         });
-      }    
+      }
     };
 
-    const showAttSuggestion = (excluded: Record<string, SaxesAttributeNS> | Record<string, string>) => {
+    const showAttSuggestion = (
+      excluded: Record<string, SaxesAttributeNS> | Record<string, string>,
+    ) => {
       const possibilities = walker.possible().entries();
       for (const entry of possibilities) {
         if (entry[0].name === "attributeName") {
           const att = entry[0].namePattern.toJSON();
-          if (Object.keys(excluded).filter(e => e === att.name).length === 0) {
+          if (
+            Object.keys(excluded).filter((e) => e === att.name).length === 0
+          ) {
             let prefix = "";
             let newNs = "";
             let xmlns = "";
             if (att.ns) {
-              const ns = nsDefinitions.filter(ns => ns.value === att.ns)[0];
+              const ns = nsDefinitions.filter((ns) => ns.value === att.ns)[0];
               if (ns) {
                 if (ns.generated) {
                   xmlns = `xmlns:${ns.prefix}="${att.ns}" `;
@@ -187,21 +245,28 @@ export class SalveCompletionProvider implements CompletionItemProvider {
                 prefix = `xml:`;
               } else {
                 nsDefinitions.push({
-                  prefix: `ns${nsCount}`, 
+                  prefix: `ns${nsCount}`,
                   value: att.ns,
-                  generated: true});
+                  generated: true,
+                });
                 xmlns = `xmlns:ns${nsCount}="${att.ns}" `;
                 prefix = `ns${nsCount}:`;
                 newNs = ` ${att.ns}`;
                 nsCount++;
               }
             }
-            const ci = new CompletionItem(`$(mention)${prefix}${att.name}${newNs}`, 24);
+            const ci = new CompletionItem(
+              `$(mention)${prefix}${att.name}${newNs}`,
+              24,
+            );
             ci.filterText = `${prefix}${att.name}`;
             ci.insertText = `${xmlns}${prefix}${att.name}=""`;
             ci.detail = truncate(att.documentation, 20);
             ci.documentation = att.documentation;
-            ci.command = {command: "sxml.suggestAttValue", title: "Suggest Attribute Value"};
+            ci.command = {
+              command: "sxml.suggestAttValue",
+              title: "Suggest Attribute Value",
+            };
             items.push(ci);
           }
         }
@@ -226,7 +291,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
 
     // Set attribute stacks to facilitate attribute value suggestions.
     let attPos = 0;
-    const attStack: (SaxesAttributeNS | SaxesAttributePlain)[] = [];  
+    const attStack: (SaxesAttributeNS | SaxesAttributePlain)[] = [];
     let tagFound = false;
 
     // Keep track of namespaces
@@ -235,10 +300,9 @@ export class SalveCompletionProvider implements CompletionItemProvider {
     let nsCount = 1;
 
     try {
-      
       /*
-      * NB: handlers are listed in processing order
-      */
+       * NB: handlers are listed in processing order
+       */
 
       parser.on("opentagstart", () => {
         // Reset attribute stacks
@@ -256,7 +320,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
 
       parser.on("attribute", (att: SaxesAttributeNS | SaxesAttributePlain) => {
         if (request !== CompletionRequest.TAG && tagFound) {
-          // Keep track of attributes before current offset 
+          // Keep track of attributes before current offset
           // so that opentag can fire the right one after
           // enterStartTag has all the data it needs
           switch (request) {
@@ -264,14 +328,14 @@ export class SalveCompletionProvider implements CompletionItemProvider {
               attPos = offset;
               attStack.push(att);
               break;
-            case CompletionRequest.VAL:            
+            case CompletionRequest.VAL:
               if (offset >= parser.position - 1) {
                 attPos = offset;
                 attStack.push(att);
               }
               break;
             default:
-              // no-op
+            // no-op
           }
         }
       });
@@ -282,25 +346,31 @@ export class SalveCompletionProvider implements CompletionItemProvider {
         names.sort();
         for (const name of names) {
           const attr = node.attributes[name] as SaxesAttributeNS;
-          if (name === "xmlns") { // xmlns="..."
+          if (name === "xmlns") {
+            // xmlns="..."
             nsDefinitions.push({
-              prefix: "", 
+              prefix: "",
               value: attr.value,
-              generated: false});
-          }
-          else if (attr.prefix === "xmlns") { // xmlns:...=...
+              generated: false,
+            });
+          } else if (attr.prefix === "xmlns") {
+            // xmlns:...=...
             nsDefinitions.push({
-              prefix: attr.local, 
+              prefix: attr.local,
               value: attr.value,
-              generated: false});
+              generated: false,
+            });
           }
         }
 
         fireEvent("enterStartTag", [node.uri, node.local]);
         let left = false;
-        if (offset === attPos
-          || offset === parser.position - 2 || offset === parser.position - 1
-          || offset === parser.position + 1) {
+        if (
+          offset === attPos ||
+          offset === parser.position - 2 ||
+          offset === parser.position - 1 ||
+          offset === parser.position + 1
+        ) {
           switch (request) {
             case CompletionRequest.ATT:
               showAttSuggestion(node.attributes);
@@ -314,7 +384,8 @@ export class SalveCompletionProvider implements CompletionItemProvider {
                 if (att) {
                   // check that att is an instance of SaxesAttributeNS to get the uri property,
                   // otherwise set uri to empty string
-                  const uri = ("uri" in att && typeof att.uri === "string") ? att.uri : "";
+                  const uri =
+                    "uri" in att && typeof att.uri === "string" ? att.uri : "";
                   fireEvent("attributeName", [uri, att.name]);
                 }
                 showValSuggestion();
@@ -327,7 +398,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
                   fireEvent("attributeName", [att[1].uri, att[1].name]);
                 }
                 showValSuggestion();
-              }            
+              }
               break;
             case CompletionRequest.TAG:
               if (offset === parser.position + 1) {
@@ -337,7 +408,7 @@ export class SalveCompletionProvider implements CompletionItemProvider {
               }
               break;
             default:
-              // no-op; 
+            // no-op;
           }
         }
         if (!left) {
@@ -348,14 +419,17 @@ export class SalveCompletionProvider implements CompletionItemProvider {
         }
         elementStack.push(node);
       });
-      
+
       parser.on("closetag", () => {
         const tagInfo = elementStack.pop();
         if (tagInfo === undefined) {
           throw new Error("stack underflow");
         }
         fireEvent("endTag", [tagInfo.uri, tagInfo.local]);
-        if (position.line === parser.line - 1 && offset - 1 === parser.position) {
+        if (
+          position.line === parser.line - 1 &&
+          offset - 1 === parser.position
+        ) {
           if (request === CompletionRequest.TAG) {
             showElementSuggestion(elementStack.slice(-1)[0]);
           }
@@ -369,17 +443,15 @@ export class SalveCompletionProvider implements CompletionItemProvider {
           }
         }
       });
-    
+
       parser.write(documentText).close();
-    } catch(err) {
+    } catch (err) {
       // NO-OP
       // Ignore sax errors because we expect the file to not be well formed at this stage.
-    } 
-    
+    }
+
     return items;
-
   }
-
 }
 
 export default SalveCompletionProvider;

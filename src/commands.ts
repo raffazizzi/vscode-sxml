@@ -1,9 +1,9 @@
 import { XMLname } from "./constants";
-import { commands, Range, Selection, SnippetString, window} from "vscode";
+import { commands, Range, Selection, SnippetString, window } from "vscode";
 import { Formatter, FormatterError } from "tei-xml-fmt";
 import { findTagPair, markupEnd } from "./services/autorename";
 import { findParentElement, findSplitElement } from "./services/selection";
-
+import type { Position, TextDocument, TextEditor } from "vscode";
 
 export const suggestAttValue = commands.registerTextEditorCommand(
   "sxml.suggestAttValue",
@@ -28,30 +28,63 @@ export const translateCursor = commands.registerTextEditorCommand(
   },
 );
 
+type ElementNameProvider = (
+  document: TextDocument,
+  position: Position,
+) => Promise<string[]>;
+
+let elementNameProvider: ElementNameProvider | undefined;
+
+export function setElementNameProvider(provider: ElementNameProvider) {
+  elementNameProvider = provider;
+}
+
+async function askForElementName(
+  textEditor: TextEditor,
+): Promise<string | undefined> {
+  const OTHER = "Other...";
+  let names: string[] = [];
+  try {
+    names =
+      (await elementNameProvider?.(
+        textEditor.document,
+        textEditor.selection.start,
+      )) ?? [];
+  } catch {
+    names = [];
+  }
+
+  if (names.length > 0) {
+    const picked = await window.showQuickPick([...names, OTHER], {
+      placeHolder: "Wrap selection with element: choose an element",
+    });
+    if (!picked) return undefined;
+    if (picked !== OTHER) return picked;
+  }
+
+  return window.showInputBox({
+    value: "",
+    placeHolder: "Wrap selection with element: write element",
+    validateInput: (text) => {
+      if (text.match(XMLname)) {
+        return null;
+      }
+      return "Must be an XML Name";
+    },
+  });
+}
+
 export const wrapWithEl = commands.registerTextEditorCommand(
   "sxml.wrapWithEl",
-  (textEditor) => {
+  async (textEditor) => {
     const selection = textEditor?.selection;
-    if (selection) {
-      window
-        .showInputBox({
-          value: "",
-          placeHolder: "Wrap selection with element: write element",
-          validateInput: (text) => {
-            if (text.match(XMLname)) {
-              return null;
-            }
-            return "Must be an XML name, optionally prefixed";
-          },
-        })
-        .then((t) => {
-          if (t) {
-            const wrapped = `<${t}>${textEditor.document.getText(selection)}</${t}>`;
-            textEditor.edit((editBuilder) => {
-              editBuilder.replace(selection, wrapped);
-            });
-          }
-        });
+    if (!selection) return;
+    const t = await askForElementName(textEditor);
+    if (t) {
+      const wrapped = `<${t}>${textEditor.document.getText(selection)}</${t}>`;
+      textEditor.edit((editBuilder) => {
+        editBuilder.replace(selection, wrapped);
+      });
     }
   },
 );
@@ -79,24 +112,24 @@ export const deleteTag = commands.registerTextEditorCommand(
 );
 
 export const expandSelection = commands.registerTextEditorCommand(
-    "sxml.expandSelection",
-    (editor) => {
-      const doc = editor.document;
-      const text = doc.getText();
-      editor.selections = editor.selections.map((sel) => {
-        const range = findParentElement(
-          text,
-          doc.offsetAt(sel.start),
-          doc.offsetAt(sel.end),
-        );
-        return range
-          ? new Selection(doc.positionAt(range[0]), doc.positionAt(range[1]))
-          : sel;
-      });
-    },
-  );
+  "sxml.expandSelection",
+  (editor) => {
+    const doc = editor.document;
+    const text = doc.getText();
+    editor.selections = editor.selections.map((sel) => {
+      const range = findParentElement(
+        text,
+        doc.offsetAt(sel.start),
+        doc.offsetAt(sel.end),
+      );
+      return range
+        ? new Selection(doc.positionAt(range[0]), doc.positionAt(range[1]))
+        : sel;
+    });
+  },
+);
 
-  export const splitElement = commands.registerTextEditorCommand(
+export const splitElement = commands.registerTextEditorCommand(
   "sxml.splitElement",
   (editor) => {
     const doc = editor.document;
@@ -108,10 +141,10 @@ export const expandSelection = commands.registerTextEditorCommand(
 );
 
 export const insertForeign = commands.registerTextEditorCommand(
-    "sxml.insertForeign",
-    (editor) => {
-      editor.insertSnippet(
-        new SnippetString("<foreign>${0:$TM_SELECTED_TEXT}</foreign>"),
-      );
-    },
-  );
+  "sxml.insertForeign",
+  (editor) => {
+    editor.insertSnippet(
+      new SnippetString("<foreign>${0:$TM_SELECTED_TEXT}</foreign>"),
+    );
+  },
+);

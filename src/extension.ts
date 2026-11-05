@@ -6,6 +6,7 @@ import {
   expandSelection,
   splitElement,
   insertForeign,
+  setElementNameProvider,
 } from "./commands";
 import { ERR_SCHEMA, ERR_VALID, ERR_WELLFORM } from "./constants";
 import { XMLDocumentManager } from "./core/XMLDocumentManager";
@@ -203,9 +204,13 @@ export function activate(context: ExtensionContext) {
   context.subscriptions.push(diagnosticCollection);
 
   // COMPLETIONS PROVIDER
+  const completionProvider = new SalveCompletionProvider(getManager);
+  setElementNameProvider((document, position) =>
+    completionProvider.getElementNamesAt(document, position),
+  );
   languages.registerCompletionItemProvider(
     supportedLangs,
-    new SalveCompletionProvider(getManager),
+    completionProvider,
     "<",
     " ",
     '"',
