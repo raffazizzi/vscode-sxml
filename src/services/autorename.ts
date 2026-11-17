@@ -13,7 +13,7 @@ export type TagPair = [TagName, TagName];
 
 // Deliberately looser than constants.ts's XMLname
 const tagNamePattern = new RegExp(`[:${nameStart}][:${nameChars}]*`, "uy");
-const wordPattern = new RegExp(`[:${nameChars}]+`, "u");
+const wordPattern = new RegExp(`[${nameChars}]*`, "u");
 
 // A '>' in an attribute value or DOCTYPE subset doesn't end the tag.
 export function markupEnd(
@@ -83,13 +83,13 @@ export function findTagPair(text: string, offset: number): TagPair | undefined {
     const nameOffset = start + (closing ? 2 : 1);
     tagNamePattern.lastIndex = nameOffset;
     const match = tagNamePattern.exec(text);
-    if (!match) return;
-    const nameEnd = nameOffset + match[0].length;
+    const name = match ? match[0] : "";
+    const nameEnd = nameOffset + name.length;
     if (!/[\t\r\n />]/.test(text[nameEnd] ?? "")) return;
     const end = markupEnd(text, nameEnd);
     if (end < 0) return;
     cursor = end + 1;
-    const tag = { name: match[0], start: nameOffset, end: nameEnd };
+    const tag = { name, start: nameOffset, end: nameEnd };
 
     if (closing) {
       if (!/^[\t\r\n ]*$/.test(text.slice(nameEnd, end))) return;
